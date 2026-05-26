@@ -65,6 +65,12 @@ importers:
 
   apps/api:
     dependencies:
+      '@mail-otter/backend-core':
+        specifier: workspace:*
+        version: link:../../packages/backend-core
+      '@mail-otter/background':
+        specifier: workspace:*
+        version: link:../background
       '@mail-otter/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -74,19 +80,26 @@ importers:
       hono:
         specifier: ^4.12.18
         version: 4.12.21
-      html-to-text:
-        specifier: ^10.0.0
-        version: 10.0.0
-      jose:
-        specifier: ^6.2.0
-        version: 6.2.3
       zod:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
-      '@types/html-to-text':
-        specifier: ^9.0.4
-        version: 9.0.4
+      '@types/node':
+        specifier: 25.9.x
+        version: 25.9.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  apps/background:
+    dependencies:
+      '@mail-otter/backend-core':
+        specifier: workspace:*
+        version: link:../../packages/backend-core
+      '@mail-otter/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+    devDependencies:
       '@types/node':
         specifier: 25.9.x
         version: 25.9.1
@@ -130,6 +143,31 @@ importers:
       vite:
         specifier: ^8.0.x
         version: 8.0.13(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0)
+
+  packages/backend-core:
+    dependencies:
+      '@mail-otter/shared':
+        specifier: workspace:*
+        version: link:../shared
+      hono:
+        specifier: ^4.12.18
+        version: 4.12.21
+      html-to-text:
+        specifier: ^10.0.0
+        version: 10.0.0
+      jose:
+        specifier: ^6.2.0
+        version: 6.2.3
+    devDependencies:
+      '@types/html-to-text':
+        specifier: ^9.0.4
+        version: 9.0.4
+      '@types/node':
+        specifier: 25.9.x
+        version: 25.9.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/shared:
     dependencies:

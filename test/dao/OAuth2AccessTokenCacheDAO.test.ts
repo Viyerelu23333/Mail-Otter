@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { generateAESGCMKey } from '@/crypto';
-import { OAuth2AccessTokenCacheDAO } from '@/dao/OAuth2AccessTokenCacheDAO';
+import { generateAESGCMKey } from '@mail-otter/backend-core';
+import { OAuth2AccessTokenCacheDAO } from '@mail-otter/backend-core';
 
 function createKvStore(): KVNamespace {
   const storage: Map<string, string> = new Map<string, string>();

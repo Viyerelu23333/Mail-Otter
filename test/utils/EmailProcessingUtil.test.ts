@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { EmailProcessingUtil } from '@/utils/EmailProcessingUtil';
-import type { EmailProcessingEnv } from '@/utils/EmailProcessingUtil';
-import { ConnectedApplicationDAO, ProcessedMessageDAO } from '@/dao';
-import { OAuth2AccessTokenService } from '@/utils/OAuth2AccessTokenService';
-import { OutlookProviderUtil } from '@/utils/OutlookProviderUtil';
-import { NonRetryableError, RetryableError } from '@/error';
+import { EmailProcessingUtil } from '@mail-otter/backend-core';
+import type { EmailProcessingEnv } from '@mail-otter/backend-core';
+import { ConnectedApplicationDAO, ProcessedMessageDAO } from '@mail-otter/backend-core';
+import { OAuth2AccessTokenService } from '@mail-otter/backend-core';
+import { OutlookProviderUtil } from '@mail-otter/backend-core';
+import { NonRetryableError, RetryableError } from '@mail-otter/backend-core';
 
 describe('EmailProcessingUtil', () => {
   beforeEach(() => {

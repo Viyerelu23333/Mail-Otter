@@ -1,9 +1,9 @@
-import { ProviderSubscriptionDAO } from '@/dao';
-import { BadRequestError, UnauthorizedError } from '@/error';
+import { ProviderSubscriptionDAO } from '@mail-otter/backend-core';
+import { BadRequestError, UnauthorizedError } from '@mail-otter/backend-core';
 import { IBaseRoute } from '@/endpoints/IBaseRoute';
 import type { ExtendedResponse, IEnv, IRequest, IResponse, RouteContext } from '@/endpoints/IBaseRoute';
 import type { ProviderSubscription } from '@mail-otter/shared/model';
-import { WebhookSecurityUtil } from '@/utils';
+import { WebhookSecurityUtil } from '@mail-otter/backend-core';
 
 class OutlookLifecycleWebhookRoute extends IBaseRoute<
   OutlookLifecycleWebhookRequest,

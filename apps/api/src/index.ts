@@ -1,7 +1,6 @@
-import { EmailEventsDispatcherWorker, MailOtterWorker } from '@/workers';
-export { CronTasksWorker } from './workers/CronTasksWorker';
-export { EmailProcessingWorkflow } from './workers/EmailProcessingWorkflow';
-export { OAuth2TokenRefreshWorker } from './workers/OAuth2TokenRefreshWorker';
+import { EmailEventsDispatcherWorker } from '@mail-otter/background';
+import { MailOtterWorker } from '@/workers';
+export { CronTasksWorker, EmailProcessingWorkflow, OAuth2TokenRefreshWorker } from '@mail-otter/background';
 
 const mailOtterWorker: MailOtterWorker = new MailOtterWorker();
 const emailEventsDispatcherWorker: EmailEventsDispatcherWorker = new EmailEventsDispatcherWorker();
