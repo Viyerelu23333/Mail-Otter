@@ -1,6 +1,6 @@
 import { CONNECTED_APPLICATION_STATUS_CONNECTED, PROVIDER_GOOGLE_GMAIL, PROVIDER_MICROSOFT_OUTLOOK } from '@mail-otter/shared/constants';
-import { ConnectedApplicationDAO, ProviderSubscriptionDAO } from '@/dao';
-import { BadRequestError } from '@/error';
+import { ConnectedApplicationDAO, ProviderSubscriptionDAO } from '@mail-otter/backend-core';
+import { BadRequestError } from '@mail-otter/backend-core';
 import { IUserRoute } from '@/endpoints/IUserRoute';
 import type { IUserEnv, IRequest, IResponse, RouteContext } from '@/endpoints/IUserRoute';
 import type { ConnectedApplication, ProviderSubscription } from '@mail-otter/shared/model';
@@ -12,7 +12,7 @@ import {
   OutlookProviderUtil,
   TimestampUtil,
   WebhookSecurityUtil,
-} from '@/utils';
+} from '@mail-otter/backend-core';
 
 class StartApplicationWatchRoute extends IUserRoute<StartApplicationWatchRequest, StartApplicationWatchResponse, StartApplicationWatchEnv> {
   schema = {

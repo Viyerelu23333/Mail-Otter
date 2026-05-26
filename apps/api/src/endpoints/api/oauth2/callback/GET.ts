@@ -1,9 +1,9 @@
-import { ConnectedApplicationDAO, OAuth2AuthorizationSessionDAO } from '@/dao';
-import { BadRequestError } from '@/error';
+import { ConnectedApplicationDAO, OAuth2AuthorizationSessionDAO } from '@mail-otter/backend-core';
+import { BadRequestError } from '@mail-otter/backend-core';
 import { IBaseRoute } from '@/endpoints/IBaseRoute';
 import type { ExtendedResponse, IEnv, IRequest, IResponse, RouteContext } from '@/endpoints/IBaseRoute';
 import type { ConnectedApplication, OAuth2AuthorizationSession } from '@mail-otter/shared/model';
-import { OAuth2AccessTokenService, OAuth2StateUtil } from '@/utils';
+import { OAuth2AccessTokenService, OAuth2StateUtil } from '@mail-otter/backend-core';
 
 class OAuth2CallbackRoute extends IBaseRoute<OAuth2CallbackRequest, OAuth2CallbackResponse, OAuth2CallbackEnv> {
   schema = {

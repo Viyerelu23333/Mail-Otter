@@ -1,4 +1,4 @@
-import { EmailEventsDispatcherWorker } from '@/workers';
+import { EmailEventsDispatcherWorker } from '@mail-otter/background';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { EmailQueueMessage } from '@mail-otter/shared/model';
 

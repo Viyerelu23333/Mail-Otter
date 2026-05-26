@@ -1,10 +1,10 @@
 import { PROVIDER_GOOGLE_GMAIL, PROVIDER_MICROSOFT_OUTLOOK } from '@mail-otter/shared/constants';
-import { ConnectedApplicationDAO, ProviderSubscriptionDAO } from '@/dao';
-import { BadRequestError } from '@/error';
+import { ConnectedApplicationDAO, ProviderSubscriptionDAO } from '@mail-otter/backend-core';
+import { BadRequestError } from '@mail-otter/backend-core';
 import { IUserRoute } from '@/endpoints/IUserRoute';
 import type { IUserEnv, IRequest, IResponse, RouteContext } from '@/endpoints/IUserRoute';
 import type { ConnectedApplication, ProviderSubscription } from '@mail-otter/shared/model';
-import { GmailProviderUtil, OAuth2AccessTokenService, OutlookProviderUtil } from '@/utils';
+import { GmailProviderUtil, OAuth2AccessTokenService, OutlookProviderUtil } from '@mail-otter/backend-core';
 
 class StopApplicationWatchRoute extends IUserRoute<StopApplicationWatchRequest, StopApplicationWatchResponse, StopApplicationWatchEnv> {
   schema = {

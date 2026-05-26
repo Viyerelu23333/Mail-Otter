@@ -7,19 +7,24 @@ const { taskSpies } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('@/scheduled', () => ({
+vi.mock('@mail-otter/background/scheduled', () => ({
   OAuth2AccessTokenRefreshTask: class {
     handle = taskSpies.oauth2Refresh;
   },
 }));
 
-vi.mock('@/utils', () => ({
-  SubscriptionRenewalUtil: {
-    renewDueSubscriptions: taskSpies.subscriptionRenewal,
-  },
-}));
+vi.mock('@mail-otter/backend-core', async (importOriginal) => {
+  const actual = (await importOriginal()) as typeof import('@mail-otter/backend-core');
+  return {
+    ...actual,
+    SubscriptionRenewalUtil: {
+      ...actual.SubscriptionRenewalUtil,
+      renewDueSubscriptions: taskSpies.subscriptionRenewal,
+    },
+  };
+});
 
-import { CronTasksWorker } from '@/workers/CronTasksWorker';
+import { CronTasksWorker } from '@mail-otter/background';
 
 function createDurableObjectState(): DurableObjectState {
   return {

@@ -6,29 +6,12 @@ import {
   PROVIDER_SUBSCRIPTION_STATUS_ACTIVE,
 } from '@mail-otter/shared/constants';
 import type { ConnectedApplication, ProviderSubscription } from '@mail-otter/shared/model';
-import { ConnectedApplicationDAO, ProviderSubscriptionDAO } from '@/dao';
-import { OAuth2AccessTokenService, OutlookProviderUtil, SubscriptionRenewalUtil } from '@/utils';
-
-vi.mock('@/dao', () => ({
-  ConnectedApplicationDAO: vi.fn(),
-  ProviderSubscriptionDAO: vi.fn(),
-}));
-
-vi.mock('@/utils/OAuth2AccessTokenService', () => ({
-  OAuth2AccessTokenService: {
-    getAccessToken: vi.fn(),
-  },
-}));
-
-vi.mock('@/utils/OutlookProviderUtil', () => ({
-  OutlookProviderUtil: {
-    renewSubscription: vi.fn(),
-  },
-}));
+import { ConnectedApplicationDAO, ProviderSubscriptionDAO } from '@mail-otter/backend-core';
+import { OAuth2AccessTokenService, OutlookProviderUtil, SubscriptionRenewalUtil } from '@mail-otter/backend-core';
 
 describe('SubscriptionRenewalUtil', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('renews due Outlook subscriptions without PUBLIC_BASE_URL', async () => {
@@ -60,21 +43,13 @@ describe('SubscriptionRenewalUtil', () => {
     const upsertActive = vi.fn().mockResolvedValue(subscription);
     const getById = vi.fn().mockResolvedValue(application);
 
-    vi.mocked(ProviderSubscriptionDAO).mockImplementation(function () {
-      return {
-        listActiveRenewalCandidates,
-        upsertActive,
-        markError: vi.fn(),
-      } as unknown as ProviderSubscriptionDAO;
-    });
-    vi.mocked(ConnectedApplicationDAO).mockImplementation(function () {
-      return {
-        getById,
-        updateOAuth2RefreshToken: vi.fn(),
-      } as unknown as ConnectedApplicationDAO;
-    });
-    vi.mocked(OAuth2AccessTokenService.getAccessToken).mockResolvedValue('access-token');
-    vi.mocked(OutlookProviderUtil.renewSubscription).mockResolvedValue({
+    vi.spyOn(ProviderSubscriptionDAO.prototype, 'listActiveRenewalCandidates').mockImplementation(listActiveRenewalCandidates);
+    vi.spyOn(ProviderSubscriptionDAO.prototype, 'upsertActive').mockImplementation(upsertActive);
+    vi.spyOn(ProviderSubscriptionDAO.prototype, 'markError').mockResolvedValue(undefined);
+    vi.spyOn(ConnectedApplicationDAO.prototype, 'getById').mockImplementation(getById);
+    vi.spyOn(ConnectedApplicationDAO.prototype, 'updateOAuth2RefreshToken').mockResolvedValue(undefined);
+    vi.spyOn(OAuth2AccessTokenService, 'getAccessToken').mockResolvedValue('access-token');
+    vi.spyOn(OutlookProviderUtil, 'renewSubscription').mockResolvedValue({
       id: 'renewed-subscription-id',
       resource: "/me/mailFolders('Inbox')/messages",
       expiresAt: Math.floor(Date.now() / 1000) + 3600,

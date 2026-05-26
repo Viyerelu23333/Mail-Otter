@@ -1,5 +1,5 @@
-import { ApplicationContextDAO, ConnectedApplicationDAO } from '@/dao';
-import { BadRequestError } from '@/error';
+import { ApplicationContextDAO, ConnectedApplicationDAO } from '@mail-otter/backend-core';
+import { BadRequestError } from '@mail-otter/backend-core';
 import { IUserRoute } from '@/endpoints/IUserRoute';
 import type { IUserEnv, IRequest, IResponse, RouteContext } from '@/endpoints/IUserRoute';
 import { PROVIDER_GOOGLE_GMAIL, PROVIDER_MICROSOFT_OUTLOOK } from '@mail-otter/shared/constants';

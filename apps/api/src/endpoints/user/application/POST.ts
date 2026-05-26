@@ -1,11 +1,11 @@
 import { CONNECTED_APPLICATION_STATUS_DRAFT, CONNECTION_METHOD_OAUTH2 } from '@mail-otter/shared/constants';
-import { ConnectedApplicationDAO } from '@/dao';
-import { BadRequestError } from '@/error';
+import { ConnectedApplicationDAO } from '@mail-otter/backend-core';
+import { BadRequestError } from '@mail-otter/backend-core';
 import { IUserRoute } from '@/endpoints/IUserRoute';
 import type { IUserEnv, IRequest, IResponse, RouteContext } from '@/endpoints/IUserRoute';
 import type { ConnectedApplicationCredentials, ConnectedApplicationMetadata } from '@mail-otter/shared/model';
-import { ApplicationResponseUtil, ConfigurationManager } from '@/utils';
-import type { ApplicationResponse } from '@/utils';
+import { ApplicationResponseUtil, ConfigurationManager } from '@mail-otter/backend-core';
+import type { ApplicationResponse } from '@mail-otter/backend-core';
 
 class CreateApplicationRoute extends IUserRoute<CreateApplicationRequest, CreateApplicationResponse, CreateApplicationEnv> {
   schema = {

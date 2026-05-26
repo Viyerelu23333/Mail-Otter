@@ -1,0 +1,27 @@
+{
+  "name": "@mail-otter/background",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./CronTasksWorker": "./src/CronTasksWorker.ts",
+    "./EmailEventsDispatcherWorker": "./src/EmailEventsDispatcherWorker.ts",
+    "./EmailProcessingWorkflow": "./src/EmailProcessingWorkflow.ts",
+    "./OAuth2TokenRefreshWorker": "./src/OAuth2TokenRefreshWorker.ts",
+    "./scheduled": "./src/scheduled/index.ts",
+    "./scheduled/*": "./src/scheduled/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mail-otter/backend-core": "workspace:*",
+    "@mail-otter/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "25.9.x",
+    "typescript": "^6.0.3"
+  }
+}
