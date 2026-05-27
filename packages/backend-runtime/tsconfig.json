@@ -14,10 +14,8 @@
     "strict": true,
     "skipLibCheck": true,
     "paths": {
-      "@mail-otter/backend-core": ["./src"],
-      "@mail-otter/backend-core/*": ["./src/*"],
-      "@mail-otter/backend-runtime": ["../backend-runtime/src"],
-      "@mail-otter/backend-runtime/*": ["../backend-runtime/src/*"],
+      "@mail-otter/backend-runtime": ["./src"],
+      "@mail-otter/backend-runtime/*": ["./src/*"],
       "@mail-otter/shared": ["../shared/src"],
       "@mail-otter/shared/*": ["../shared/src/*"]
     }

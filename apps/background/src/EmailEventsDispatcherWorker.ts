@@ -1,4 +1,4 @@
-import { AbstractQueueWorker } from '@mail-otter/backend-core/base';
+import { AbstractQueueWorker } from '@mail-otter/backend-runtime/base';
 import { CryptoUtil } from '@mail-otter/shared/utils';
 import type { EmailQueueMessage } from '@mail-otter/shared/model';
 

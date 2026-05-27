@@ -19,10 +19,12 @@
       "@mail-otter/background/*": ["../../apps/background/src/*"],
       "@mail-otter/backend-core": ["../../packages/backend-core/src"],
       "@mail-otter/backend-core/*": ["../../packages/backend-core/src/*"],
+      "@mail-otter/backend-runtime": ["../../packages/backend-runtime/src"],
+      "@mail-otter/backend-runtime/*": ["../../packages/backend-runtime/src/*"],
       "@mail-otter/shared": ["../../packages/shared/src"],
       "@mail-otter/shared/*": ["../../packages/shared/src/*"]
     }
   },
-  "include": ["../../worker-configuration.d.ts", "../../packages/backend-core/src/env.d.ts", "src/**/*.ts"],
+  "include": ["../../worker-configuration.d.ts", "../../packages/backend-runtime/src/env.d.ts", "src/**/*.ts"],
   "exclude": ["test", "node_modules"]
 }

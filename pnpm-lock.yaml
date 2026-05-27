@@ -68,6 +68,9 @@ importers:
       '@mail-otter/backend-core':
         specifier: workspace:*
         version: link:../../packages/backend-core
+      '@mail-otter/backend-runtime':
+        specifier: workspace:*
+        version: link:../../packages/backend-runtime
       '@mail-otter/background':
         specifier: workspace:*
         version: link:../background
@@ -96,6 +99,9 @@ importers:
       '@mail-otter/backend-core':
         specifier: workspace:*
         version: link:../../packages/backend-core
+      '@mail-otter/backend-runtime':
+        specifier: workspace:*
+        version: link:../../packages/backend-runtime
       '@mail-otter/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -146,6 +152,9 @@ importers:
 
   packages/backend-core:
     dependencies:
+      '@mail-otter/backend-runtime':
+        specifier: workspace:*
+        version: link:../backend-runtime
       '@mail-otter/shared':
         specifier: workspace:*
         version: link:../shared
@@ -162,6 +171,19 @@ importers:
       '@types/html-to-text':
         specifier: ^9.0.4
         version: 9.0.4
+      '@types/node':
+        specifier: 25.9.x
+        version: 25.9.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/backend-runtime:
+    dependencies:
+      '@mail-otter/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
       '@types/node':
         specifier: 25.9.x
         version: 25.9.1

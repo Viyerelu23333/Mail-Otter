@@ -1,4 +1,4 @@
-import { AbstractDurableObjectWorker } from '@mail-otter/backend-core/base';
+import { AbstractDurableObjectWorker } from '@mail-otter/backend-runtime/base';
 import {
   CONNECTED_APPLICATION_STATUS_CONNECTED,
   CONNECTION_METHOD_OAUTH2,

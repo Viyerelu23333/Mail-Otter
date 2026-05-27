@@ -6,8 +6,6 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./base": "./src/base/index.ts",
-    "./base/*": "./src/base/*.ts",
     "./constants": "./src/constants/index.ts",
     "./constants/*": "./src/constants/*.ts",
     "./crypto": "./src/crypto/index.ts",
@@ -23,6 +21,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@mail-otter/backend-runtime": "workspace:*",
     "@mail-otter/shared": "workspace:*",
     "hono": "^4.12.18",
     "html-to-text": "^10.0.0",

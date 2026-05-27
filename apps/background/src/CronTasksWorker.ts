@@ -1,4 +1,4 @@
-import { AbstractDurableObjectWorker } from '@mail-otter/backend-core/base';
+import { AbstractDurableObjectWorker } from '@mail-otter/backend-runtime/base';
 import { OAuth2AccessTokenRefreshTask } from '@mail-otter/background/scheduled';
 import { SubscriptionRenewalUtil } from '@mail-otter/backend-core/utils';
 
