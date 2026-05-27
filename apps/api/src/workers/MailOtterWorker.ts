@@ -1,4 +1,4 @@
-import { AbstractEntrypointWorker } from '@mail-otter/backend-core/base';
+import { AbstractEntrypointWorker } from '@mail-otter/backend-runtime/base';
 import { fromHono, HonoOpenAPIRouterType } from 'chanfana';
 import { Hono } from 'hono';
 import {
@@ -22,7 +22,7 @@ import {
 } from '@/endpoints';
 import { MiddlewareHandlers } from '@/middleware';
 import { SPA_HTML } from '@/generated/spa-shell';
-import { DURABLE_OBJECT_CRON_TASKS_RUN_URL, DURABLE_OBJECT_NAMESPACE_GLOBAL } from '@mail-otter/backend-core/constants';
+import { DURABLE_OBJECT_CRON_TASKS_RUN_URL, DURABLE_OBJECT_NAMESPACE_GLOBAL } from '@mail-otter/backend-runtime/constants';
 import { ConfigurationManager } from '@mail-otter/backend-core/utils';
 
 class MailOtterWorker extends AbstractEntrypointWorker {

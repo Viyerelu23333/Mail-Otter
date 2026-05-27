@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@mail-otter/backend-core": "workspace:*",
+    "@mail-otter/backend-runtime": "workspace:*",
     "@mail-otter/shared": "workspace:*"
   },
   "devDependencies": {

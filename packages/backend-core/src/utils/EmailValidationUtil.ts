@@ -1,10 +1,15 @@
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 import { UnauthorizedError } from '../error';
 
+interface EmailValidationEnv {
+  DEV_AUTH_EMAIL?: string | undefined;
+  TEAM_DOMAIN?: string | undefined;
+  POLICY_AUD?: string | undefined;
+}
+
 class EmailValidationUtil {
-  public static async getAuthenticatedUserEmail(request: Request, env: Env): Promise<string> {
-    const envRecord = env as unknown as Record<string, unknown>;
-    const devEmail: string | undefined = envRecord.DEV_AUTH_EMAIL as string | undefined;
+  public static async getAuthenticatedUserEmail(request: Request, env: EmailValidationEnv): Promise<string> {
+    const devEmail: string | undefined = env.DEV_AUTH_EMAIL;
     if (devEmail) {
       return devEmail;
     }
@@ -14,14 +19,17 @@ class EmailValidationUtil {
       throw new UnauthorizedError('No Cloudflare Access JWT token provided in request headers.');
     }
 
-    const teamDomain: string | undefined = envRecord.TEAM_DOMAIN as string | undefined;
-    const policyAud: string | undefined = envRecord.POLICY_AUD as string | undefined;
+    const teamDomain: string | undefined = env.TEAM_DOMAIN;
+    const policyAud: string | undefined = env.POLICY_AUD;
 
     if (!teamDomain || !policyAud) {
       throw new UnauthorizedError('Missing required JWT verification configuration (TEAM_DOMAIN or POLICY_AUD not set).');
     }
 
-    const normalizedTeamDomain: string = teamDomain.replace(/\/+$/, '');
+    let normalizedTeamDomain: string = teamDomain;
+    while (normalizedTeamDomain.endsWith('/')) {
+      normalizedTeamDomain = normalizedTeamDomain.slice(0, -1);
+    }
     const normalizedPolicyAud: string = policyAud.trim();
 
     if (!normalizedPolicyAud) {
@@ -51,3 +59,4 @@ class EmailValidationUtil {
 }
 
 export { EmailValidationUtil };
+export type { EmailValidationEnv };

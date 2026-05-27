@@ -211,9 +211,9 @@ class EmailSummaryUtil {
   }
 
   private static extractJsonObjectText(value: string): string | undefined {
-    const fencedJson: RegExpMatchArray | null = value.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fencedJson?.[1]) {
-      return fencedJson[1].trim();
+    const fencedJson: string | undefined = EmailSummaryUtil.extractFencedJsonText(value);
+    if (fencedJson) {
+      return fencedJson.trim();
     }
 
     const start: number = value.indexOf('{');
@@ -244,6 +244,25 @@ class EmailSummaryUtil {
       }
     }
     return undefined;
+  }
+
+  private static extractFencedJsonText(value: string): string | undefined {
+    const openingFence: number = value.indexOf('```');
+    if (openingFence === -1) return undefined;
+
+    let contentStart: number = openingFence + 3;
+    if (value.slice(contentStart, contentStart + 4).toLowerCase() === 'json') {
+      contentStart += 4;
+    }
+
+    while (contentStart < value.length) {
+      const char: string = value[contentStart]!;
+      if (char !== ' ' && char !== '\t' && char !== '\n' && char !== '\r') break;
+      contentStart += 1;
+    }
+
+    const closingFence: number = value.indexOf('```', contentStart);
+    return closingFence === -1 ? undefined : value.slice(contentStart, closingFence);
   }
 
   private static extractResponsesApiOutputText(output: unknown): string | undefined {

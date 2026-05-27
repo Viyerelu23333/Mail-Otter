@@ -1,0 +1,24 @@
+{
+  "name": "@mail-otter/backend-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./base": "./src/base/index.ts",
+    "./base/*": "./src/base/*.ts",
+    "./constants": "./src/constants/index.ts",
+    "./constants/*": "./src/constants/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mail-otter/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "25.9.x",
+    "typescript": "^6.0.3"
+  }
+}

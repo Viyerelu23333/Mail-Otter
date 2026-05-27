@@ -1,4 +1,4 @@
-import { AbstractWorkflowWorker } from '@mail-otter/backend-core/base';
+import { AbstractWorkflowWorker } from '@mail-otter/backend-runtime/base';
 import { NonRetryableError, RetryableError } from '@mail-otter/backend-core/error';
 import { EmailProcessingUtil } from '@mail-otter/backend-core/utils';
 import type { EmailQueueMessage } from '@mail-otter/shared/model';
