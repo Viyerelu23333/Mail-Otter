@@ -52,6 +52,7 @@ interface ApplicationContextSummary {
   lastIndexedAt?: number | null | undefined;
   lastDeleteAcceptedAt?: number | null | undefined;
   lastError?: string | null | undefined;
+  lastErrorAt?: number | null | undefined;
 }
 
 interface ApplicationContextDocumentList {

@@ -559,6 +559,7 @@ export default function SpaApp() {
                       label="Last error"
                       value={selectedApplication.lastError || 'None'}
                       tone={selectedApplication.lastError ? 'error' : 'muted'}
+                      subtitle={selectedApplication.lastError ? formatTimestamp(selectedApplication.lastErrorAt) : undefined}
                     />
                   </div>
                 </div>
@@ -587,6 +588,7 @@ export default function SpaApp() {
                       label="Context error"
                       value={selectedApplication.contextLastError || 'None'}
                       tone={selectedApplication.contextLastError ? 'error' : 'muted'}
+                      subtitle={selectedApplication.contextLastError ? formatTimestamp(selectedApplication.contextLastErrorAt) : undefined}
                     />
                   </div>
                   <div className="mt-5 flex flex-wrap gap-2">
@@ -1039,11 +1041,12 @@ function ReadOnlyField({ label, value, showCopy = false }: { label: string; valu
   );
 }
 
-function Metric({ label, value, tone = 'muted' }: { label: string; value: string; tone?: 'muted' | 'error' }) {
+function Metric({ label, value, tone = 'muted', subtitle }: { label: string; value: string; tone?: 'muted' | 'error'; subtitle?: string }) {
   return (
     <div className="rounded-md border border-[#2d3745] bg-[#11161f] p-4 min-w-0">
       <div className="text-xs uppercase tracking-normal text-[#7d8896]">{label}</div>
       <div className={`mt-2 break-words ${tone === 'error' ? 'text-[#fca5a5]' : 'text-[#d1d5db]'}`}>{value}</div>
+      {subtitle && <div className="mt-1 text-xs text-[#7d8896]">{subtitle}</div>}
     </div>
   );
 }

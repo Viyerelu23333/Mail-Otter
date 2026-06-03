@@ -171,10 +171,10 @@ class ApplicationContextDAO {
       )
       .bind(applicationId, APPLICATION_CONTEXT_DELETION_STATUS_ACCEPTED)
       .first<{ last_delete_accepted_at: number | null }>();
-    const documentError: { last_error: string | null } | null = await this.database
+    const documentError: { last_error: string | null; updated_at: number } | null = await this.database
       .prepare(
         `
-          SELECT last_error
+          SELECT last_error, updated_at
           FROM application_context_documents
           WHERE application_id = ? AND last_error IS NOT NULL
           ORDER BY updated_at DESC
@@ -182,11 +182,11 @@ class ApplicationContextDAO {
         `,
       )
       .bind(applicationId)
-      .first<{ last_error: string | null }>();
-    const deletionError: { error_message: string | null } | null = await this.database
+      .first<{ last_error: string | null; updated_at: number }>();
+    const deletionError: { error_message: string | null; updated_at: number } | null = await this.database
       .prepare(
         `
-          SELECT error_message
+          SELECT error_message, updated_at
           FROM application_context_deletion_runs
           WHERE application_id = ? AND status = ? AND error_message IS NOT NULL
           ORDER BY updated_at DESC
@@ -194,13 +194,16 @@ class ApplicationContextDAO {
         `,
       )
       .bind(applicationId, APPLICATION_CONTEXT_DELETION_STATUS_ERROR)
-      .first<{ error_message: string | null }>();
+      .first<{ error_message: string | null; updated_at: number }>();
     return {
       applicationId,
       documentCount: countRow?.count ?? 0,
       lastIndexedAt: countRow?.last_indexed_at ?? null,
       lastDeleteAcceptedAt: deletionRow?.last_delete_accepted_at ?? null,
       lastError: documentError?.last_error || deletionError?.error_message || null,
+      lastErrorAt: documentError?.last_error
+        ? documentError.updated_at
+        : (deletionError?.error_message ? deletionError.updated_at : null),
     };
   }
 
