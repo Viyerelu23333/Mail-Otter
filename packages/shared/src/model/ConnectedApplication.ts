@@ -25,10 +25,12 @@ interface ConnectedApplicationMetadata {
   watchExpiresAt?: number | null | undefined;
   lastSummaryAt?: number | null | undefined;
   lastError?: string | null | undefined;
+  lastErrorAt?: number | null | undefined;
   contextDocumentCount?: number | undefined;
   contextLastIndexedAt?: number | null | undefined;
   contextLastDeleteAcceptedAt?: number | null | undefined;
   contextLastError?: string | null | undefined;
+  contextLastErrorAt?: number | null | undefined;
   createdAt: number;
   updatedAt: number;
 }

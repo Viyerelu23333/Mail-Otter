@@ -23,11 +23,13 @@ export interface ConnectedApplication {
   watchExpiresAt?: number | null;
   lastSummaryAt?: number | null;
   lastError?: string | null;
+  lastErrorAt?: number | null;
   contextIndexingEnabled: boolean;
   contextDocumentCount?: number;
   contextLastIndexedAt?: number | null;
   contextLastDeleteAcceptedAt?: number | null;
   contextLastError?: string | null;
+  contextLastErrorAt?: number | null;
   updatedAt: number;
 }
 

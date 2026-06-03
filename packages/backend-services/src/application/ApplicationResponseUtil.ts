@@ -31,10 +31,12 @@ class ApplicationResponseUtil {
       watchExpiresAt: subscription?.expiresAt,
       lastSummaryAt: latestMessage?.summarySentAt,
       lastError: subscription?.lastError || latestError?.errorMessage,
+      lastErrorAt: subscription?.lastError ? subscription.updatedAt : (latestError?.errorMessage ? latestError.updatedAt : null),
       contextDocumentCount: contextSummary.documentCount,
       contextLastIndexedAt: contextSummary.lastIndexedAt,
       contextLastDeleteAcceptedAt: contextSummary.lastDeleteAcceptedAt,
       contextLastError: contextSummary.lastError,
+      contextLastErrorAt: contextSummary.lastErrorAt,
     };
   }
 }
@@ -50,10 +52,12 @@ interface ApplicationResponse extends ConnectedApplicationMetadata {
   watchExpiresAt?: number | null | undefined;
   lastSummaryAt?: number | null | undefined;
   lastError?: string | null | undefined;
+  lastErrorAt?: number | null | undefined;
   contextDocumentCount: number;
   contextLastIndexedAt?: number | null | undefined;
   contextLastDeleteAcceptedAt?: number | null | undefined;
   contextLastError?: string | null | undefined;
+  contextLastErrorAt?: number | null | undefined;
 }
 
 export { ApplicationResponseUtil };
