@@ -15,6 +15,8 @@ import {
   DEFAULT_OUTLOOK_SUBSCRIPTION_TTL_DAYS,
   DEFAULT_RAG_TOP_K,
   DEFAULT_RAG_VECTOR_QUERY_TOP_K,
+  DEFAULT_RENEWAL_RETRY_BASE_DELAY_SECONDS,
+  DEFAULT_RENEWAL_RETRY_MAX_DELAY_SECONDS,
   DEFAULT_SERVE_SPA_FROM_WORKER,
 } from './ConfigurationDefaults';
 
@@ -97,6 +99,14 @@ class ConfigurationManager {
 
   public static getOAuth2TokenRefreshBatchSize(env: unknown): number {
     return ConfigurationManager.getPositiveInt(env, 'OAUTH2_TOKEN_REFRESH_BATCH_SIZE', DEFAULT_OAUTH2_TOKEN_REFRESH_BATCH_SIZE);
+  }
+
+  public static getRenewalRetryBaseDelaySeconds(env: unknown): number {
+    return ConfigurationManager.getPositiveInt(env, 'RENEWAL_RETRY_BASE_DELAY_SECONDS', DEFAULT_RENEWAL_RETRY_BASE_DELAY_SECONDS);
+  }
+
+  public static getRenewalRetryMaxDelaySeconds(env: unknown): number {
+    return ConfigurationManager.getPositiveInt(env, 'RENEWAL_RETRY_MAX_DELAY_SECONDS', DEFAULT_RENEWAL_RETRY_MAX_DELAY_SECONDS);
   }
 
   private static getPositiveInt(env: unknown, key: string, defaultValue: string): number {

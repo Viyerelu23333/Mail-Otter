@@ -14,6 +14,8 @@ interface ProviderSubscription {
   lastNotificationAt?: number | null | undefined;
   lastRenewedAt?: number | null | undefined;
   lastError?: string | null | undefined;
+  renewalRetryCount: number;
+  renewalNextRetryAt?: number | null | undefined;
   createdAt: number;
   updatedAt: number;
 }
@@ -32,6 +34,8 @@ interface ProviderSubscriptionInternal {
   last_notification_at: number | null;
   last_renewed_at: number | null;
   last_error: string | null;
+  renewal_retry_count: number;
+  renewal_next_retry_at: number | null;
   created_at: number;
   updated_at: number;
 }

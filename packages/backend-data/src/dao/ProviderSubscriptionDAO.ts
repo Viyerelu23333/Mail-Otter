@@ -35,7 +35,8 @@ class ProviderSubscriptionDAO {
           `
             UPDATE provider_subscriptions
             SET external_subscription_id = ?, webhook_secret_hash = ?, client_state_hash = ?, gmail_history_id = ?,
-                resource = ?, status = ?, expires_at = ?, last_error = NULL, last_renewed_at = ?, updated_at = ?
+                resource = ?, status = ?, expires_at = ?, last_error = NULL, last_renewed_at = ?,
+                renewal_retry_count = 0, renewal_next_retry_at = NULL, updated_at = ?
             WHERE subscription_id = ?
           `,
         )
@@ -97,7 +98,7 @@ class ProviderSubscriptionDAO {
     const row: ProviderSubscriptionInternal | null = await this.database
       .prepare(
         `
-          SELECT subscription_id, application_id, provider_id, external_subscription_id, webhook_secret_hash, client_state_hash, gmail_history_id, resource, status, expires_at, last_notification_at, last_renewed_at, last_error, created_at, updated_at
+          SELECT subscription_id, application_id, provider_id, external_subscription_id, webhook_secret_hash, client_state_hash, gmail_history_id, resource, status, expires_at, last_notification_at, last_renewed_at, last_error, renewal_retry_count, renewal_next_retry_at, created_at, updated_at
           FROM provider_subscriptions
           WHERE application_id = ?
           LIMIT 1
@@ -112,7 +113,7 @@ class ProviderSubscriptionDAO {
     const row: ProviderSubscriptionInternal | null = await this.database
       .prepare(
         `
-          SELECT subscription_id, application_id, provider_id, external_subscription_id, webhook_secret_hash, client_state_hash, gmail_history_id, resource, status, expires_at, last_notification_at, last_renewed_at, last_error, created_at, updated_at
+          SELECT subscription_id, application_id, provider_id, external_subscription_id, webhook_secret_hash, client_state_hash, gmail_history_id, resource, status, expires_at, last_notification_at, last_renewed_at, last_error, renewal_retry_count, renewal_next_retry_at, created_at, updated_at
           FROM provider_subscriptions
           WHERE external_subscription_id = ?
           LIMIT 1
@@ -127,13 +128,14 @@ class ProviderSubscriptionDAO {
     const rows: ProviderSubscriptionInternal[] = await this.database
       .prepare(
         `
-          SELECT subscription_id, application_id, provider_id, external_subscription_id, webhook_secret_hash, client_state_hash, gmail_history_id, resource, status, expires_at, last_notification_at, last_renewed_at, last_error, created_at, updated_at
+          SELECT subscription_id, application_id, provider_id, external_subscription_id, webhook_secret_hash, client_state_hash, gmail_history_id, resource, status, expires_at, last_notification_at, last_renewed_at, last_error, renewal_retry_count, renewal_next_retry_at, created_at, updated_at
           FROM provider_subscriptions
           WHERE status = ? AND expires_at IS NOT NULL AND expires_at <= ?
+            AND (renewal_next_retry_at IS NULL OR renewal_next_retry_at <= ?)
           ORDER BY expires_at ASC
         `,
       )
-      .bind(PROVIDER_SUBSCRIPTION_STATUS_ACTIVE, maxExpiresAt || now)
+      .bind(PROVIDER_SUBSCRIPTION_STATUS_ACTIVE, maxExpiresAt || now, now)
       .all<ProviderSubscriptionInternal>()
       .then((result: D1Result<ProviderSubscriptionInternal>): ProviderSubscriptionInternal[] => result.results || []);
     return rows.map((row: ProviderSubscriptionInternal): ProviderSubscription => this.toSubscription(row));
@@ -185,11 +187,13 @@ class ProviderSubscriptionDAO {
     }
   }
 
-  public async recordTransientError(subscriptionId: string, errorMessage: string): Promise<void> {
+  public async recordTransientError(subscriptionId: string, errorMessage: string, nextRetryAt: number): Promise<void> {
     const now: number = TimestampUtil.getCurrentUnixTimestampInSeconds();
     const result: D1Result = await this.database
-      .prepare('UPDATE provider_subscriptions SET last_error = ?, updated_at = ? WHERE subscription_id = ?')
-      .bind(errorMessage.slice(0, 1024), now, subscriptionId)
+      .prepare(
+        'UPDATE provider_subscriptions SET last_error = ?, renewal_retry_count = renewal_retry_count + 1, renewal_next_retry_at = ?, updated_at = ? WHERE subscription_id = ?',
+      )
+      .bind(errorMessage.slice(0, 1024), nextRetryAt, now, subscriptionId)
       .run();
     if (!result.success) {
       throw new DatabaseError(`Failed to record transient error on provider subscription: ${result.error}`);
@@ -200,7 +204,7 @@ class ProviderSubscriptionDAO {
     const row: ProviderSubscriptionInternal | null = await this.database
       .prepare(
         `
-          SELECT subscription_id, application_id, provider_id, external_subscription_id, webhook_secret_hash, client_state_hash, gmail_history_id, resource, status, expires_at, last_notification_at, last_renewed_at, last_error, created_at, updated_at
+          SELECT subscription_id, application_id, provider_id, external_subscription_id, webhook_secret_hash, client_state_hash, gmail_history_id, resource, status, expires_at, last_notification_at, last_renewed_at, last_error, renewal_retry_count, renewal_next_retry_at, created_at, updated_at
           FROM provider_subscriptions
           WHERE subscription_id = ?
           LIMIT 1
@@ -226,6 +230,8 @@ class ProviderSubscriptionDAO {
       lastNotificationAt: row.last_notification_at,
       lastRenewedAt: row.last_renewed_at,
       lastError: row.last_error,
+      renewalRetryCount: row.renewal_retry_count,
+      renewalNextRetryAt: row.renewal_next_retry_at,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
