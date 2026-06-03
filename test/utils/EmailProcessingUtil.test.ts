@@ -11,82 +11,89 @@ describe('EmailProcessingUtil', () => {
     vi.restoreAllMocks();
   });
 
-  it('marks Outlook messages as skipped when they are deleted before processing', async () => {
-    vi.spyOn(ConnectedApplicationDAO.prototype, 'getById').mockResolvedValue({
-      applicationId: 'app-1',
-      userEmail: 'owner@example.com',
-      providerId: 'microsoft-outlook',
-      providerEmail: 'owner@example.com',
-      credentials: { refreshToken: 'refresh-token' },
-    } as never);
-    vi.spyOn(ConnectedApplicationDAO.prototype, 'listContextEnabledApplicationIdsByUserEmail').mockResolvedValue([]);
-    vi.spyOn(OAuth2AccessTokenService, 'getAccessToken').mockResolvedValue('access-token');
-    const tryStart = vi.spyOn(ProcessedMessageDAO.prototype, 'tryStart').mockResolvedValue(true);
-    const markSkipped = vi.spyOn(ProcessedMessageDAO.prototype, 'markSkipped').mockResolvedValue();
-    const markError = vi.spyOn(ProcessedMessageDAO.prototype, 'markError').mockResolvedValue();
-    vi.spyOn(OutlookProviderUtil, 'getMessage').mockRejectedValue(
-      new Error(
-        'Microsoft Graph API error: The specified object was not found in the store., The process failed to get the correct properties.',
-      ),
-    );
+  describe('resolveApplication', () => {
+    it('classifies missing applications as non-retryable', async () => {
+      vi.spyOn(ConnectedApplicationDAO.prototype, 'getById').mockResolvedValue(undefined);
 
-    await expect(EmailProcessingUtil.processQueueMessage(createOutlookQueueMessage(), createEnv())).resolves.toBeUndefined();
+      await expect(
+        EmailProcessingUtil.resolveApplication(createOutlookQueueMessage(), createEnv()),
+      ).rejects.toThrow(NonRetryableError);
+    });
 
-    expect(tryStart).toHaveBeenCalledWith('app-1', 'microsoft-outlook', 'message-1', null, { allowExistingForRetry: false });
-    expect(markSkipped).toHaveBeenCalledWith('app-1', 'message-1', 'Outlook message was deleted before Mail-Otter could process it.');
-    expect(markError).not.toHaveBeenCalled();
+    it('classifies applications without a provider email as non-retryable', async () => {
+      vi.spyOn(ConnectedApplicationDAO.prototype, 'getById').mockResolvedValue({
+        applicationId: 'app-1',
+        userEmail: 'owner@example.com',
+        providerId: 'microsoft-outlook',
+        providerEmail: undefined,
+        credentials: { refreshToken: 'refresh-token' },
+      } as never);
+
+      await expect(
+        EmailProcessingUtil.resolveApplication(createOutlookQueueMessage(), createEnv()),
+      ).rejects.toThrow(NonRetryableError);
+    });
   });
 
-  it('allows workflow retry attempts to resume existing processed-message rows', async () => {
-    vi.spyOn(ConnectedApplicationDAO.prototype, 'getById').mockResolvedValue({
-      applicationId: 'app-1',
-      userEmail: 'owner@example.com',
-      providerId: 'microsoft-outlook',
-      providerEmail: 'owner@example.com',
-      credentials: { refreshToken: 'refresh-token' },
-    } as never);
-    vi.spyOn(ConnectedApplicationDAO.prototype, 'listContextEnabledApplicationIdsByUserEmail').mockResolvedValue([]);
-    vi.spyOn(OAuth2AccessTokenService, 'getAccessToken').mockResolvedValue('access-token');
-    const tryStart = vi.spyOn(ProcessedMessageDAO.prototype, 'tryStart').mockResolvedValue(true);
-    vi.spyOn(ProcessedMessageDAO.prototype, 'markSkipped').mockResolvedValue();
-    vi.spyOn(OutlookProviderUtil, 'getMessage').mockRejectedValue(
-      new Error(
-        'Microsoft Graph API error: The specified object was not found in the store., The process failed to get the correct properties.',
-      ),
-    );
+  describe('processOutlookMessage', () => {
+    it('marks Outlook messages as skipped when they are deleted before processing', async () => {
+      const tryStart = vi.spyOn(ProcessedMessageDAO.prototype, 'tryStart').mockResolvedValue(true);
+      const markSkipped = vi.spyOn(ProcessedMessageDAO.prototype, 'markSkipped').mockResolvedValue();
+      const markError = vi.spyOn(ProcessedMessageDAO.prototype, 'markError').mockResolvedValue();
+      vi.spyOn(OutlookProviderUtil, 'getMessage').mockRejectedValue(
+        new Error(
+          'Microsoft Graph API error: The specified object was not found in the store., The process failed to get the correct properties.',
+        ),
+      );
 
-    await expect(
-      EmailProcessingUtil.processQueueMessage(createOutlookQueueMessage(), createEnv(), { retryAttempt: 2 }),
-    ).resolves.toBeUndefined();
+      await expect(
+        EmailProcessingUtil.processOutlookMessage(createApplication(), 'access-token', 'message-1', createEnv(), []),
+      ).resolves.toBeUndefined();
 
-    expect(tryStart).toHaveBeenCalledWith('app-1', 'microsoft-outlook', 'message-1', null, { allowExistingForRetry: true });
-  });
+      expect(tryStart).toHaveBeenCalledWith('app-1', 'microsoft-outlook', 'message-1', null, { allowExistingForRetry: false });
+      expect(markSkipped).toHaveBeenCalledWith('app-1', 'message-1', 'Outlook message was deleted before Mail-Otter could process it.');
+      expect(markError).not.toHaveBeenCalled();
+    });
 
-  it('classifies missing applications as non-retryable', async () => {
-    vi.spyOn(ConnectedApplicationDAO.prototype, 'getById').mockResolvedValue(undefined);
+    it('allows workflow retry attempts to resume existing processed-message rows', async () => {
+      const tryStart = vi.spyOn(ProcessedMessageDAO.prototype, 'tryStart').mockResolvedValue(true);
+      vi.spyOn(ProcessedMessageDAO.prototype, 'markSkipped').mockResolvedValue();
+      vi.spyOn(OutlookProviderUtil, 'getMessage').mockRejectedValue(
+        new Error(
+          'Microsoft Graph API error: The specified object was not found in the store., The process failed to get the correct properties.',
+        ),
+      );
 
-    await expect(EmailProcessingUtil.processQueueMessage(createOutlookQueueMessage(), createEnv())).rejects.toThrow(NonRetryableError);
-  });
+      await expect(
+        EmailProcessingUtil.processOutlookMessage(createApplication(), 'access-token', 'message-1', createEnv(), [], { retryAttempt: 2 }),
+      ).resolves.toBeUndefined();
 
-  it('classifies unexpected processing failures as retryable and records the error', async () => {
-    vi.spyOn(ConnectedApplicationDAO.prototype, 'getById').mockResolvedValue({
-      applicationId: 'app-1',
-      userEmail: 'owner@example.com',
-      providerId: 'microsoft-outlook',
-      providerEmail: 'owner@example.com',
-      credentials: { refreshToken: 'refresh-token' },
-    } as never);
-    vi.spyOn(ConnectedApplicationDAO.prototype, 'listContextEnabledApplicationIdsByUserEmail').mockResolvedValue([]);
-    vi.spyOn(OAuth2AccessTokenService, 'getAccessToken').mockResolvedValue('access-token');
-    vi.spyOn(ProcessedMessageDAO.prototype, 'tryStart').mockResolvedValue(true);
-    const markError = vi.spyOn(ProcessedMessageDAO.prototype, 'markError').mockResolvedValue();
-    vi.spyOn(OutlookProviderUtil, 'getMessage').mockRejectedValue(new Error('Temporary Graph failure.'));
+      expect(tryStart).toHaveBeenCalledWith('app-1', 'microsoft-outlook', 'message-1', null, { allowExistingForRetry: true });
+    });
 
-    await expect(EmailProcessingUtil.processQueueMessage(createOutlookQueueMessage(), createEnv())).rejects.toThrow(RetryableError);
+    it('classifies unexpected processing failures as retryable and records the error', async () => {
+      vi.spyOn(ProcessedMessageDAO.prototype, 'tryStart').mockResolvedValue(true);
+      const markError = vi.spyOn(ProcessedMessageDAO.prototype, 'markError').mockResolvedValue();
+      vi.spyOn(OutlookProviderUtil, 'getMessage').mockRejectedValue(new Error('Temporary Graph failure.'));
 
-    expect(markError).toHaveBeenCalledWith('app-1', 'message-1', 'Temporary Graph failure.');
+      await expect(
+        EmailProcessingUtil.processOutlookMessage(createApplication(), 'access-token', 'message-1', createEnv(), []),
+      ).rejects.toThrow(RetryableError);
+
+      expect(markError).toHaveBeenCalledWith('app-1', 'message-1', 'Temporary Graph failure.');
+    });
   });
 });
+
+function createApplication() {
+  return {
+    applicationId: 'app-1',
+    userEmail: 'owner@example.com',
+    providerId: 'microsoft-outlook',
+    providerEmail: 'owner@example.com',
+    credentials: { refreshToken: 'refresh-token' },
+  } as never;
+}
 
 function createOutlookQueueMessage() {
   return {

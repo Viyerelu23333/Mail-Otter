@@ -13,11 +13,7 @@ import { EmailSummaryUtil } from './EmailSummaryUtil';
 import { OAuth2AccessTokenService } from '../oauth2/OAuth2AccessTokenService';
 
 class EmailProcessingUtil {
-  public static async processQueueMessage(
-    message: EmailQueueMessage,
-    env: EmailProcessingEnv,
-    options: EmailProcessingOptions = {},
-  ): Promise<void> {
+  public static async resolveApplication(message: EmailQueueMessage, env: EmailProcessingEnv): Promise<ResolvedApplication> {
     const masterKey: string = await env.AES_ENCRYPTION_KEY_SECRET.get();
     const applicationDAO = new ConnectedApplicationDAO(env.DB, masterKey);
     const application: ConnectedApplication | undefined = await applicationDAO.getById(message.applicationId);
@@ -27,49 +23,37 @@ class EmailProcessingUtil {
     if (!application.providerEmail) {
       throw new NonRetryableError('Connected application does not have a provider mailbox address.');
     }
-
     const accessToken: string = await OAuth2AccessTokenService.getAccessToken(application.applicationId, env);
     const enabledApplicationIds: string[] = await applicationDAO.listContextEnabledApplicationIdsByUserEmail(application.userEmail);
-    if (message.type === 'gmail-notification') {
-      await EmailProcessingUtil.processGmailNotification(
-        application,
-        accessToken,
-        message.notificationHistoryId,
-        env,
-        enabledApplicationIds,
-        options,
-      );
-      return;
-    }
-    await EmailProcessingUtil.processOutlookMessage(application, accessToken, message.messageId, env, enabledApplicationIds, options);
+    return { application, accessToken, enabledApplicationIds };
   }
 
-  private static async processGmailNotification(
+  public static async listGmailMessages(
     application: ConnectedApplication,
     accessToken: string,
     notificationHistoryId: string,
     env: EmailProcessingEnv,
-    enabledApplicationIds: string[],
-    options: EmailProcessingOptions,
-  ): Promise<void> {
+  ): Promise<GmailMessageList | null> {
     const subscriptionDAO = new ProviderSubscriptionDAO(env.DB);
     const subscription: ProviderSubscription | undefined = await subscriptionDAO.getByApplication(application.applicationId);
-    if (!subscription || subscription.status !== PROVIDER_SUBSCRIPTION_STATUS_ACTIVE) return;
+    if (!subscription || subscription.status !== PROVIDER_SUBSCRIPTION_STATUS_ACTIVE) return null;
     const startHistoryId: string | undefined = subscription.gmailHistoryId || notificationHistoryId;
     const history = await GmailProviderUtil.listMessageIdsSince(accessToken, startHistoryId);
-    for (const messageId of history.messageIds) {
-      await EmailProcessingUtil.processGmailMessage(application, accessToken, messageId, env, enabledApplicationIds, options);
-    }
-    await subscriptionDAO.updateGmailHistory(subscription.subscriptionId, history.historyId || notificationHistoryId);
+    return { messageIds: history.messageIds, historyId: history.historyId || notificationHistoryId, subscriptionId: subscription.subscriptionId };
   }
 
-  private static async processGmailMessage(
+  public static async updateGmailHistory(subscriptionId: string, historyId: string, env: EmailProcessingEnv): Promise<void> {
+    const subscriptionDAO = new ProviderSubscriptionDAO(env.DB);
+    await subscriptionDAO.updateGmailHistory(subscriptionId, historyId);
+  }
+
+  public static async processGmailMessage(
     application: ConnectedApplication,
     accessToken: string,
     messageId: string,
     env: EmailProcessingEnv,
     enabledApplicationIds: string[],
-    options: EmailProcessingOptions,
+    options: EmailProcessingOptions = {},
   ): Promise<void> {
     const message: GmailMessage = await GmailProviderUtil.getMessage(accessToken, messageId);
     const headers = message.payload?.headers;
@@ -107,13 +91,13 @@ class EmailProcessingUtil {
     }
   }
 
-  private static async processOutlookMessage(
+  public static async processOutlookMessage(
     application: ConnectedApplication,
     accessToken: string,
     messageId: string,
     env: EmailProcessingEnv,
     enabledApplicationIds: string[],
-    options: EmailProcessingOptions,
+    options: EmailProcessingOptions = {},
   ): Promise<void> {
     const processedDAO = new ProcessedMessageDAO(env.DB);
     const started: boolean = await processedDAO.tryStart(application.applicationId, application.providerId, messageId, null, {
@@ -206,6 +190,18 @@ class EmailProcessingUtil {
   }
 }
 
+interface ResolvedApplication {
+  application: ConnectedApplication;
+  accessToken: string;
+  enabledApplicationIds: string[];
+}
+
+interface GmailMessageList {
+  messageIds: string[];
+  historyId: string;
+  subscriptionId: string;
+}
+
 interface EmailProcessingEnv {
   DB: D1Database;
   AES_ENCRYPTION_KEY_SECRET: SecretsStoreSecret;
@@ -228,4 +224,4 @@ interface EmailProcessingOptions {
 }
 
 export { EmailProcessingUtil };
-export type { EmailProcessingEnv, EmailProcessingOptions };
+export type { EmailProcessingEnv, EmailProcessingOptions, ResolvedApplication, GmailMessageList };
