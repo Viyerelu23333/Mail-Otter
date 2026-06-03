@@ -10,7 +10,8 @@ vi.mock('@mail-otter/backend-services/email', async (importOriginal) => {
     ...actual,
     EmailProcessingUtil: {
       ...actual.EmailProcessingUtil,
-      processQueueMessage: vi.fn(),
+      resolveApplication: vi.fn(),
+      processOutlookMessage: vi.fn(),
     },
   };
 });
@@ -18,32 +19,53 @@ vi.mock('@mail-otter/backend-services/email', async (importOriginal) => {
 import { EmailProcessingWorkflow } from '@mail-otter/background';
 import { EmailProcessingUtil } from '@mail-otter/backend-services/email';
 
+const resolvedApplication = {
+  application: {
+    applicationId: 'app-1',
+    userEmail: 'owner@example.com',
+    providerId: 'microsoft-outlook',
+    providerEmail: 'owner@example.com',
+    credentials: { refreshToken: 'refresh-token' },
+  },
+  accessToken: 'access-token',
+  enabledApplicationIds: [],
+};
+
 describe('EmailProcessingWorkflow', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
   it('passes the workflow retry attempt into email processing', async () => {
-    vi.mocked(EmailProcessingUtil.processQueueMessage).mockResolvedValue();
+    vi.mocked(EmailProcessingUtil.resolveApplication).mockResolvedValue(resolvedApplication as never);
+    vi.mocked(EmailProcessingUtil.processOutlookMessage).mockResolvedValue();
     const workflow = new EmailProcessingWorkflow({} as ExecutionContext, {} as Env);
     const step = createStep(3);
     const event = createEvent();
 
     await workflow.run(event, step);
 
-    expect(EmailProcessingUtil.processQueueMessage).toHaveBeenCalledWith(event.payload, {}, { retryAttempt: 3 });
+    expect(EmailProcessingUtil.processOutlookMessage).toHaveBeenCalledWith(
+      resolvedApplication.application,
+      resolvedApplication.accessToken,
+      'message-1',
+      {},
+      resolvedApplication.enabledApplicationIds,
+      { retryAttempt: 3 },
+    );
   });
 
   it('leaves retryable errors retryable for the workflow step policy', async () => {
+    vi.mocked(EmailProcessingUtil.resolveApplication).mockResolvedValue(resolvedApplication as never);
     const error = new RetryableError('Temporary provider failure.');
-    vi.mocked(EmailProcessingUtil.processQueueMessage).mockRejectedValue(error);
+    vi.mocked(EmailProcessingUtil.processOutlookMessage).mockRejectedValue(error);
     const workflow = new EmailProcessingWorkflow({} as ExecutionContext, {} as Env);
 
     await expect(workflow.run(createEvent(), createStep(1))).rejects.toBe(error);
   });
 
   it('converts non-retryable errors into Cloudflare workflow fatal errors', async () => {
-    vi.mocked(EmailProcessingUtil.processQueueMessage).mockRejectedValue(new NonRetryableError('Application is not connected.'));
+    vi.mocked(EmailProcessingUtil.resolveApplication).mockRejectedValue(new NonRetryableError('Application is not connected.'));
     const workflow = new EmailProcessingWorkflow({} as ExecutionContext, {} as Env);
 
     await expect(workflow.run(createEvent(), createStep(1))).rejects.toThrow(WorkflowNonRetryableError);
@@ -76,7 +98,7 @@ function createStep(attempt: number): WorkflowStep {
           attempt,
           config: typeof configOrCallback === 'function' ? {} : configOrCallback,
           step: {
-            name: 'process email event',
+            name: _name,
             count: attempt,
           },
         });
