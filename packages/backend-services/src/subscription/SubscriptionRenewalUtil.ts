@@ -30,7 +30,12 @@ class SubscriptionRenewalUtil {
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         if (error instanceof RetryableError) {
-          await subscriptionDAO.recordTransientError(subscription.subscriptionId, message);
+          const baseDelay = ConfigurationManager.getRenewalRetryBaseDelaySeconds(env);
+          const maxDelay = ConfigurationManager.getRenewalRetryMaxDelaySeconds(env);
+          const currentCount = subscription.renewalRetryCount;
+          const delay = Math.min(baseDelay * Math.pow(2, currentCount), maxDelay);
+          const nextRetryAt = now + delay;
+          await subscriptionDAO.recordTransientError(subscription.subscriptionId, message, nextRetryAt);
         } else {
           await subscriptionDAO.markError(subscription.subscriptionId, message);
         }
@@ -90,6 +95,8 @@ interface SubscriptionRenewalEnv {
   GMAIL_WATCH_RENEWAL_WINDOW_HOURS?: string | undefined;
   OUTLOOK_SUBSCRIPTION_RENEWAL_WINDOW_HOURS?: string | undefined;
   OUTLOOK_SUBSCRIPTION_TTL_DAYS?: string | undefined;
+  RENEWAL_RETRY_BASE_DELAY_SECONDS?: string | undefined;
+  RENEWAL_RETRY_MAX_DELAY_SECONDS?: string | undefined;
 }
 
 export { SubscriptionRenewalUtil };
