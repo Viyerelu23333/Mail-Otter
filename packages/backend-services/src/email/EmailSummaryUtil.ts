@@ -101,7 +101,7 @@ class EmailSummaryUtil {
     if (!summary) {
       throw new AiSummaryRetryableError('Workers AI did not return a valid summary.');
     }
-    return { summary: EmailSummaryUtil.renderSummary(summary), usage };
+    return { summary: EmailSummaryUtil.renderSummary(summary, model), usage };
   }
 
   private static supportsJsonMode(model: string): boolean {
@@ -174,7 +174,7 @@ class EmailSummaryUtil {
     };
   }
 
-  static renderSummary(summary: EmailSummary): string {
+  static renderSummary(summary: EmailSummary, model: string): string {
     const gist: string = EmailSummaryUtil.normalizeSentence(summary.gist) || 'No clear gist available.';
     const keyDetails: string[] = EmailSummaryUtil.normalizeItems(summary.keyDetails);
     const actionItems: string[] = EmailSummaryUtil.normalizeItems(summary.actionItems);
@@ -188,7 +188,7 @@ class EmailSummaryUtil {
       'Action items:',
       ...EmailSummaryUtil.renderList(actionItems, 'None.'),
       '',
-      '<Mail-Otter Summary>',
+      `<Mail-Otter Summary - AI model: ${model}>`,
     ].join('\n');
   }
 
