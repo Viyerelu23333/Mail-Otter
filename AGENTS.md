@@ -153,7 +153,7 @@ Do not reintroduce password signup or user-managed refresh-token paste flows.
 - When creating a commit from `main`, first switch to a new branch generated from the planned commit subject.
 - Use lowercase slash-separated branch names: `type/description` when there is no scope, or `type/scope/description` when there is a scope.
 - Convert the description to kebab-case for the branch, for example `docs/latest-agents-context-reflection`, `docs/agents/document-commit-standard`, or `feat/bootstrap/bootstrap-jqanywhere-v0.1-framework`.
-- Use Markdown for optional commit bodies, separated from the subject by a blank line.
+- Always include a Markdown commit body description for every new commit, separated from the subject by a blank line.
 - Use optional footers after the body, separated by a blank line, following git trailer-style formatting.
 - Use `FIX` for bug patches and `FEAT` for new features; other conventional types are allowed when they better communicate intent.
 - Mark breaking API changes with `!` after the type or scope, or with a `BREAKING CHANGE: <description>` footer.
