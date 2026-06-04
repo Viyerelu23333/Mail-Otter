@@ -34,5 +34,5 @@ jobs:
             await github.rest.repos.createDispatchEvent({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              event_type: 'upstream-sync',
+              event_type: 'Upstream Sync',
             });
