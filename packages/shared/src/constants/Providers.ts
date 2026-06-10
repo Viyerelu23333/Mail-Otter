@@ -12,6 +12,8 @@ const PROVIDER_SUBSCRIPTION_STATUS_STOPPED = 'stopped';
 const PROVIDER_SUBSCRIPTION_STATUS_ERROR = 'error';
 
 const PROCESSED_MESSAGE_STATUS_PROCESSING = 'processing';
+
+const SOURCE_TYPE_EMAIL = 'email';
 const PROCESSED_MESSAGE_STATUS_SUMMARIZED = 'summarized';
 const PROCESSED_MESSAGE_STATUS_SKIPPED = 'skipped';
 const PROCESSED_MESSAGE_STATUS_ERROR = 'error';
@@ -37,6 +39,8 @@ type ProcessedMessageStatus =
   | typeof PROCESSED_MESSAGE_STATUS_SKIPPED
   | typeof PROCESSED_MESSAGE_STATUS_ERROR;
 
+type SourceType = typeof SOURCE_TYPE_EMAIL;
+
 export {
   CONNECTED_APPLICATION_STATUS_CONNECTED,
   CONNECTED_APPLICATION_STATUS_DRAFT,
@@ -49,8 +53,9 @@ export {
   PROVIDER_GOOGLE_GMAIL,
   PROVIDER_MICROSOFT_OUTLOOK,
   PROVIDER_SUBSCRIPTION_STATUS_ACTIVE,
+  SOURCE_TYPE_EMAIL,
   PROVIDER_SUBSCRIPTION_STATUS_ERROR,
   PROVIDER_SUBSCRIPTION_STATUS_STOPPED,
   SUPPORTED_PROVIDER_CONNECTIONS,
 };
-export type { ConnectedApplicationStatus, ConnectionMethod, ProcessedMessageStatus, ProviderId, ProviderSubscriptionStatus };
+export type { ConnectedApplicationStatus, ConnectionMethod, ProcessedMessageStatus, ProviderId, ProviderSubscriptionStatus, SourceType };

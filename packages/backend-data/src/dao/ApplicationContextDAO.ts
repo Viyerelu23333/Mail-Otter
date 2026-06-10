@@ -4,6 +4,7 @@ import {
   APPLICATION_CONTEXT_DOCUMENT_STATUS_ACTIVE,
   APPLICATION_CONTEXT_DOCUMENT_STATUS_DELETED,
   APPLICATION_CONTEXT_DOCUMENT_STATUS_ERROR,
+  SOURCE_TYPE_EMAIL,
 } from '@mail-otter/shared/constants';
 import { DatabaseError } from '@mail-otter/backend-errors';
 import type {
@@ -37,7 +38,7 @@ class ApplicationContextDAO {
           LIMIT 1
         `,
       )
-      .bind(input.applicationId, 'email', input.sourceDocumentId)
+      .bind(input.applicationId, SOURCE_TYPE_EMAIL, input.sourceDocumentId)
       .first<ApplicationContextDocumentInternal>();
 
     if (existing) {
@@ -91,7 +92,7 @@ class ApplicationContextDAO {
         contextDocumentId,
         input.applicationId,
         input.userEmail,
-        'email',
+        SOURCE_TYPE_EMAIL,
         input.sourceProviderId,
         input.sourceDocumentId,
         input.sourceThreadId || null,
@@ -209,7 +210,6 @@ class ApplicationContextDAO {
 
   public async listDocumentsForUser(userEmail: string, input: ListContextDocumentsInput = {}): Promise<ApplicationContextDocumentList> {
     const limit: number = Math.min(Math.max(input.limit ?? 25, 1), 100);
-    const offset: number = ApplicationContextDAO.parseCursor(input.cursor);
     const conditions: string[] = ['user_email = ?'];
     const bindings: Array<string | number> = [userEmail];
     if (input.applicationId) {
@@ -220,6 +220,11 @@ class ApplicationContextDAO {
       conditions.push('status = ?');
       bindings.push(input.status);
     }
+    const cursor: { updatedAt: number; createdAt: number } | undefined = ApplicationContextDAO.parseDocumentCursor(input.cursor);
+    if (cursor) {
+      conditions.push('(updated_at < ? OR (updated_at = ? AND created_at < ?))');
+      bindings.push(cursor.updatedAt, cursor.updatedAt, cursor.createdAt);
+    }
     const rows: ApplicationContextDocumentInternal[] = await this.database
       .prepare(
         `
@@ -227,27 +232,31 @@ class ApplicationContextDAO {
           FROM application_context_documents
           WHERE ${conditions.join(' AND ')}
           ORDER BY updated_at DESC, created_at DESC
-          LIMIT ? OFFSET ?
+          LIMIT ?
         `,
       )
-      .bind(...bindings, limit + 1, offset)
+      .bind(...bindings, limit + 1)
       .all<ApplicationContextDocumentInternal>()
       .then((result: D1Result<ApplicationContextDocumentInternal>): ApplicationContextDocumentInternal[] => result.results || []);
     const pageRows: ApplicationContextDocumentInternal[] = rows.slice(0, limit);
     return {
       documents: pageRows.map((row: ApplicationContextDocumentInternal): ApplicationContextDocument => this.toDocument(row)),
-      nextCursor: rows.length > limit ? String(offset + limit) : undefined,
+      nextCursor: rows.length > limit ? ApplicationContextDAO.encodeDocumentCursor(pageRows[pageRows.length - 1].updated_at, pageRows[pageRows.length - 1].created_at) : undefined,
     };
   }
 
   public async listDeletionRunsForUser(userEmail: string, input: ListDeletionRunsInput = {}): Promise<ApplicationContextDeletionRunList> {
     const limit: number = Math.min(Math.max(input.limit ?? 25, 1), 100);
-    const offset: number = ApplicationContextDAO.parseCursor(input.cursor);
     const conditions: string[] = ['user_email = ?'];
     const bindings: Array<string | number> = [userEmail];
     if (input.applicationId) {
       conditions.push('application_id = ?');
       bindings.push(input.applicationId);
+    }
+    const cursor: { createdAt: number } | undefined = ApplicationContextDAO.parseDeletionRunCursor(input.cursor);
+    if (cursor) {
+      conditions.push('created_at < ?');
+      bindings.push(cursor.createdAt);
     }
     const rows: ApplicationContextDeletionRunInternal[] = await this.database
       .prepare(
@@ -257,16 +266,16 @@ class ApplicationContextDAO {
           FROM application_context_deletion_runs
           WHERE ${conditions.join(' AND ')}
           ORDER BY created_at DESC
-          LIMIT ? OFFSET ?
+          LIMIT ?
         `,
       )
-      .bind(...bindings, limit + 1, offset)
+      .bind(...bindings, limit + 1)
       .all<ApplicationContextDeletionRunInternal>()
       .then((result: D1Result<ApplicationContextDeletionRunInternal>): ApplicationContextDeletionRunInternal[] => result.results || []);
     const pageRows: ApplicationContextDeletionRunInternal[] = rows.slice(0, limit);
     return {
       deletionRuns: pageRows.map((row: ApplicationContextDeletionRunInternal): ApplicationContextDeletionRun => this.toDeletionRun(row)),
-      nextCursor: rows.length > limit ? String(offset + limit) : undefined,
+      nextCursor: rows.length > limit ? ApplicationContextDAO.encodeDeletionRunCursor(pageRows[pageRows.length - 1].created_at) : undefined,
     };
   }
 
@@ -497,10 +506,40 @@ class ApplicationContextDAO {
     };
   }
 
-  private static parseCursor(cursor: string | undefined): number {
-    if (!cursor) return 0;
-    const parsed: number = Number.parseInt(cursor, 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  private static parseDocumentCursor(cursor: string | undefined): { updatedAt: number; createdAt: number } | undefined {
+    if (!cursor) return undefined;
+    try {
+      const decoded: string = atob(cursor);
+      const parsed: unknown = JSON.parse(decoded);
+      if (Array.isArray(parsed) && parsed.length === 2 && typeof parsed[0] === 'number' && typeof parsed[1] === 'number') {
+        return { updatedAt: parsed[0], createdAt: parsed[1] };
+      }
+      return undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private static encodeDocumentCursor(updatedAt: number, createdAt: number): string {
+    return btoa(JSON.stringify([updatedAt, createdAt]));
+  }
+
+  private static parseDeletionRunCursor(cursor: string | undefined): { createdAt: number } | undefined {
+    if (!cursor) return undefined;
+    try {
+      const decoded: string = atob(cursor);
+      const parsed: unknown = JSON.parse(decoded);
+      if (Array.isArray(parsed) && parsed.length === 1 && typeof parsed[0] === 'number') {
+        return { createdAt: parsed[0] };
+      }
+      return undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private static encodeDeletionRunCursor(createdAt: number): string {
+    return btoa(JSON.stringify([createdAt]));
   }
 
   private static parseMutationIds(value: string | null): string[] {

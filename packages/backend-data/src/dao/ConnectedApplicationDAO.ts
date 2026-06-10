@@ -40,8 +40,8 @@ class ConnectedApplicationDAO {
       .prepare(
         `
           INSERT INTO connected_applications
-            (application_id, user_email, provider_email, display_name, provider_id, connection_method, encrypted_credentials, credentials_iv, status, context_indexing_enabled, gmail_pubsub_topic_name, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (application_id, user_email, provider_email, display_name, provider_id, connection_method, encrypted_credentials, credentials_iv, status, context_indexing_enabled, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
       )
       .bind(
@@ -55,13 +55,15 @@ class ConnectedApplicationDAO {
         encrypted.iv,
         status,
         1,
-        gmailPubsubTopicName || null,
         now,
         now,
       )
       .run();
     if (!result.success) {
       throw new DatabaseError(`Failed to create connected application: ${result.error}`);
+    }
+    if (gmailPubsubTopicName) {
+      await this.setProviderConfig(applicationId, 'gmail_pubsub_topic_name', gmailPubsubTopicName, now);
     }
     const application: ConnectedApplicationMetadata | undefined = await this.getMetadataByIdForUser(applicationId, userEmail);
     if (!application) {
@@ -74,7 +76,7 @@ class ConnectedApplicationDAO {
     const rows: ConnectedApplicationInternal[] = await this.database
       .prepare(
         `
-          SELECT application_id, user_email, provider_email, display_name, provider_id, connection_method, encrypted_credentials, credentials_iv, status, context_indexing_enabled, max_context_documents, gmail_pubsub_topic_name, watched_folder_ids, created_at, updated_at
+          SELECT application_id, user_email, provider_email, display_name, provider_id, connection_method, encrypted_credentials, credentials_iv, status, context_indexing_enabled, max_context_documents, created_at, updated_at
           FROM connected_applications
           WHERE user_email = ?
           ORDER BY updated_at DESC, created_at DESC
@@ -83,7 +85,7 @@ class ConnectedApplicationDAO {
       .bind(userEmail)
       .all<ConnectedApplicationInternal>()
       .then((result: D1Result<ConnectedApplicationInternal>): ConnectedApplicationInternal[] => result.results || []);
-    return rows.map((row: ConnectedApplicationInternal): ConnectedApplicationMetadata => this.toMetadata(row));
+    return Promise.all(rows.map((row: ConnectedApplicationInternal): Promise<ConnectedApplicationMetadata> => this.toMetadata(row)));
   }
 
   public async countByUserEmail(userEmail: string): Promise<number> {
@@ -111,17 +113,17 @@ class ConnectedApplicationDAO {
 
   public async getMetadataByIdForUser(applicationId: string, userEmail: string): Promise<ConnectedApplicationMetadata | undefined> {
     const row: ConnectedApplicationInternal | undefined = await this.getRowById(applicationId, userEmail);
-    return row ? this.toMetadata(row) : undefined;
+    return row ? await this.toMetadata(row) : undefined;
   }
 
   public async getById(applicationId: string): Promise<ConnectedApplication | undefined> {
     const row: ConnectedApplicationInternal | undefined = await this.getRowById(applicationId);
-    return row ? this.toApplication(row) : undefined;
+    return row ? await this.toApplication(row) : undefined;
   }
 
   public async getByIdForUser(applicationId: string, userEmail: string): Promise<ConnectedApplication | undefined> {
     const row: ConnectedApplicationInternal | undefined = await this.getRowById(applicationId, userEmail);
-    return row ? this.toApplication(row) : undefined;
+    return row ? await this.toApplication(row) : undefined;
   }
 
   public async updateForUser(
@@ -138,14 +140,19 @@ class ConnectedApplicationDAO {
       .prepare(
         `
           UPDATE connected_applications
-          SET display_name = ?, encrypted_credentials = ?, credentials_iv = ?, status = ?, gmail_pubsub_topic_name = ?, updated_at = ?
+          SET display_name = ?, encrypted_credentials = ?, credentials_iv = ?, status = ?, updated_at = ?
           WHERE application_id = ? AND user_email = ?
         `,
       )
-      .bind(displayName, encrypted.encrypted, encrypted.iv, status, gmailPubsubTopicName || null, now, applicationId, userEmail)
+      .bind(displayName, encrypted.encrypted, encrypted.iv, status, now, applicationId, userEmail)
       .run();
     if (!result.success) {
       throw new DatabaseError(`Failed to update connected application: ${result.error}`);
+    }
+    if (gmailPubsubTopicName) {
+      await this.setProviderConfig(applicationId, 'gmail_pubsub_topic_name', gmailPubsubTopicName, now);
+    } else if (gmailPubsubTopicName === null) {
+      await this.deleteProviderConfig(applicationId, 'gmail_pubsub_topic_name');
     }
     return this.getMetadataByIdForUser(applicationId, userEmail);
   }
@@ -233,18 +240,22 @@ class ConnectedApplicationDAO {
     folderIds: string[] | null,
   ): Promise<ConnectedApplicationMetadata | undefined> {
     const now: number = TimestampUtil.getCurrentUnixTimestampInSeconds();
-    const result: D1Result = await this.database
-      .prepare(
-        `
-          UPDATE connected_applications
-          SET watched_folder_ids = ?, updated_at = ?
-          WHERE application_id = ? AND user_email = ?
-        `,
-      )
-      .bind(folderIds ? JSON.stringify(folderIds) : null, now, applicationId, userEmail)
-      .run();
-    if (!result.success) {
-      throw new DatabaseError(`Failed to update watched folder IDs: ${result.error}`);
+    if (folderIds && folderIds.length > 0) {
+      await this.database
+        .prepare('DELETE FROM application_watched_folders WHERE application_id = ?')
+        .bind(applicationId)
+        .run();
+      const stmt = this.database.prepare(
+        'INSERT INTO application_watched_folders (application_id, folder_path, created_at) VALUES (?, ?, ?)',
+      );
+      for (const folderPath of folderIds) {
+        await stmt.bind(applicationId, folderPath, now).run();
+      }
+    } else {
+      await this.database
+        .prepare('DELETE FROM application_watched_folders WHERE application_id = ?')
+        .bind(applicationId)
+        .run();
     }
     return this.getMetadataByIdForUser(applicationId, userEmail);
   }
@@ -281,13 +292,54 @@ class ConnectedApplicationDAO {
     }
   }
 
+  public async getProviderConfig(applicationId: string, configKey: string): Promise<string | null> {
+    const row: { config_value: string } | null = await this.database
+      .prepare('SELECT config_value FROM provider_application_configs WHERE application_id = ? AND config_key = ?')
+      .bind(applicationId, configKey)
+      .first<{ config_value: string }>();
+    return row?.config_value ?? null;
+  }
+
+  public async setProviderConfig(applicationId: string, configKey: string, configValue: string, now?: number): Promise<void> {
+    const timestamp: number = now ?? TimestampUtil.getCurrentUnixTimestampInSeconds();
+    const result: D1Result = await this.database
+      .prepare(
+        `
+          INSERT INTO provider_application_configs (application_id, config_key, config_value, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(application_id, config_key) DO UPDATE SET config_value = excluded.config_value, updated_at = excluded.updated_at
+        `,
+      )
+      .bind(applicationId, configKey, configValue, timestamp, timestamp)
+      .run();
+    if (!result.success) {
+      throw new DatabaseError(`Failed to set provider config: ${result.error}`);
+    }
+  }
+
+  public async deleteProviderConfig(applicationId: string, configKey: string): Promise<void> {
+    await this.database
+      .prepare('DELETE FROM provider_application_configs WHERE application_id = ? AND config_key = ?')
+      .bind(applicationId, configKey)
+      .run();
+  }
+
+  public async getWatchedFolderPaths(applicationId: string): Promise<string[]> {
+    const rows: Array<{ folder_path: string }> = await this.database
+      .prepare('SELECT folder_path FROM application_watched_folders WHERE application_id = ? ORDER BY folder_path ASC')
+      .bind(applicationId)
+      .all<{ folder_path: string }>()
+      .then((result: D1Result<{ folder_path: string }>): Array<{ folder_path: string }> => result.results || []);
+    return rows.map((row: { folder_path: string }): string => row.folder_path);
+  }
+
   private async getRowById(applicationId: string, userEmail?: string): Promise<ConnectedApplicationInternal | undefined> {
     const whereUser: string = userEmail ? ' AND user_email = ?' : '';
     const bindings: string[] = userEmail ? [applicationId, userEmail] : [applicationId];
     const row: ConnectedApplicationInternal | null = await this.database
       .prepare(
         `
-          SELECT application_id, user_email, provider_email, display_name, provider_id, connection_method, encrypted_credentials, credentials_iv, status, context_indexing_enabled, max_context_documents, gmail_pubsub_topic_name, watched_folder_ids, created_at, updated_at
+          SELECT application_id, user_email, provider_email, display_name, provider_id, connection_method, encrypted_credentials, credentials_iv, status, context_indexing_enabled, max_context_documents, created_at, updated_at
           FROM connected_applications
           WHERE application_id = ?${whereUser}
           LIMIT 1
@@ -301,18 +353,22 @@ class ConnectedApplicationDAO {
   private async toApplication(row: ConnectedApplicationInternal): Promise<ConnectedApplication> {
     const decryptedCredentials: string = await decryptData(row.encrypted_credentials, row.credentials_iv, this.masterKey);
     return {
-      ...this.toMetadata(row),
+      ...(await this.toMetadata(row)),
       credentials: JSON.parse(decryptedCredentials) as ConnectedApplicationCredentials,
     };
   }
 
-  private toMetadata(row: ConnectedApplicationInternal): ConnectedApplicationMetadata {
+  private async toMetadata(row: ConnectedApplicationInternal): Promise<ConnectedApplicationMetadata> {
     const status: ConnectedApplicationMetadata['status'] =
       row.status === CONNECTED_APPLICATION_STATUS_CONNECTED
         ? CONNECTED_APPLICATION_STATUS_CONNECTED
         : row.status === CONNECTED_APPLICATION_STATUS_ERROR
           ? CONNECTED_APPLICATION_STATUS_ERROR
           : CONNECTED_APPLICATION_STATUS_DRAFT;
+    const [watchedFolderPaths, gmailPubsubTopicName]: [string[], string | null] = await Promise.all([
+      this.getWatchedFolderPaths(row.application_id),
+      this.getProviderConfig(row.application_id, 'gmail_pubsub_topic_name'),
+    ]);
     return {
       applicationId: row.application_id,
       userEmail: row.user_email,
@@ -323,10 +379,10 @@ class ConnectedApplicationDAO {
       status,
       contextIndexingEnabled: row.context_indexing_enabled !== 0,
       maxContextDocuments: row.max_context_documents ?? null,
-      gmailPubsubTopicName: row.gmail_pubsub_topic_name,
-      watchedFolderIds: row.watched_folder_ids ? (JSON.parse(row.watched_folder_ids) as string[]) : null,
+      watchedFolderIds: watchedFolderPaths.length > 0 ? watchedFolderPaths : null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      gmailPubsubTopicName: gmailPubsubTopicName ?? undefined,
     };
   }
 }
