@@ -52,8 +52,6 @@ interface ConnectedApplicationInternal {
   status: ConnectedApplicationStatus;
   context_indexing_enabled: number;
   max_context_documents: number | null;
-  gmail_pubsub_topic_name: string | null;
-  watched_folder_ids: string | null;
   created_at: number;
   updated_at: number;
 }
