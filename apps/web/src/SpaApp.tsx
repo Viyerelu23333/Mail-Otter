@@ -797,7 +797,7 @@ function StatusBadge({ status }: { status: 'draft' | 'connected' | 'error' }) {
       : status === 'error'
         ? 'bg-[#3a1f23] text-[#fecaca]'
         : 'bg-[#3b2f16] text-[#fbbf24]';
-  return <span className={`px-2 py-1 rounded text-xs font-medium ${className}`}>{status}</span>;
+  return <span className={`px-2 py-1 rounded text-xs font-medium ${className}`}>{status.toUpperCase()}</span>;
 }
 
 function WatchBadge({ status }: { status: 'active' | 'stopped' | 'error' }) {
@@ -807,13 +807,13 @@ function WatchBadge({ status }: { status: 'active' | 'stopped' | 'error' }) {
       : status === 'error'
         ? 'bg-[#3a1f23] text-[#fecaca]'
         : 'bg-[#2d3745] text-[#cbd5e1]';
-  return <span className={`px-2 py-1 rounded text-xs font-medium ${className}`}>{status}</span>;
+  return <span className={`px-2 py-1 rounded text-xs font-medium ${className}`}>{status.toUpperCase()}</span>;
 }
 
 function ContextBadge({ enabled }: { enabled: boolean }) {
   return (
     <span className={`px-2 py-1 rounded text-xs font-medium ${enabled ? 'bg-[#12362f] text-[#6ee7b7]' : 'bg-[#2d3745] text-[#cbd5e1]'}`}>
-      context {enabled ? 'on' : 'off'}
+      CONTEXT {enabled ? 'ON' : 'OFF'}
     </span>
   );
 }
@@ -880,10 +880,10 @@ function ContextAuditView({
               onChange={(event) => setStatus(event.target.value as ApplicationContextDocumentStatus | '')}
               className="px-3 py-2 rounded-md bg-[#0d1118] border border-[#2d3745] text-white"
             >
-              <option value="">All statuses</option>
-              <option value="active">Active</option>
-              <option value="deleted">Deleted</option>
-              <option value="error">Error</option>
+              <option value="">ALL STATUSES</option>
+              <option value="active">ACTIVE</option>
+              <option value="deleted">DELETED</option>
+              <option value="error">ERROR</option>
             </select>
             <button className="px-4 py-2 rounded-md bg-[#2d3745] hover:bg-[#3b4655]" onClick={onRefresh}>
               Refresh
@@ -1005,7 +1005,7 @@ function ContextDocumentRow({
           >
             Open Provider
           </button>
-          <span className={`px-2 py-1 rounded text-xs font-medium ${statusClass}`}>{document.status}</span>
+          <span className={`px-2 py-1 rounded text-xs font-medium ${statusClass}`}>{document.status.toUpperCase()}</span>
         </div>
       </div>
       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
@@ -1050,7 +1050,7 @@ function ContextDeletionRunRow({
           </div>
           <div className="text-xs text-[#7d8896] mt-1">{formatTimestamp(run.createdAt)}</div>
         </div>
-        <span className={`px-2 py-1 rounded text-xs font-medium ${statusClass}`}>{run.status}</span>
+        <span className={`px-2 py-1 rounded text-xs font-medium ${statusClass}`}>{run.status.toUpperCase()}</span>
       </div>
       {run.mutationIds.length > 0 && <div className="mt-3 text-xs text-[#7d8896] break-words">Mutations: {run.mutationIds.join(', ')}</div>}
       {run.errorMessage && <div className="mt-3 text-sm text-[#fca5a5] break-words">{run.errorMessage}</div>}
