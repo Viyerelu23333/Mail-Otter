@@ -1,4 +1,4 @@
-import { PROVIDER_SUBSCRIPTION_STATUS_ACTIVE, SOURCE_TYPE_EMAIL, CONTEXT_AUDIT_EVENT_PROCESSING_STARTED, CONTEXT_AUDIT_EVENT_SUMMARY_GENERATED, CONTEXT_AUDIT_EVENT_ACTION_CREATED, CONTEXT_AUDIT_EVENT_ERROR, CONTEXT_AUDIT_LOG_SEVERITY_INFO, CONTEXT_AUDIT_LOG_SEVERITY_WARNING, CONTEXT_AUDIT_LOG_SEVERITY_ERROR } from '@mail-otter/shared/constants';
+import { PROVIDER_SUBSCRIPTION_STATUS_ACTIVE, SOURCE_TYPE_EMAIL, CONTEXT_AUDIT_EVENT_PROCESSING_STARTED, CONTEXT_AUDIT_EVENT_SUMMARY_GENERATED, CONTEXT_AUDIT_EVENT_SUMMARY_SENT, CONTEXT_AUDIT_EVENT_ACTION_CREATED, CONTEXT_AUDIT_EVENT_ERROR, CONTEXT_AUDIT_LOG_SEVERITY_INFO, CONTEXT_AUDIT_LOG_SEVERITY_WARNING, CONTEXT_AUDIT_LOG_SEVERITY_ERROR } from '@mail-otter/shared/constants';
 import { AiDailyUsageDAO, ApplicationContextDAO, ConnectedApplicationDAO, ProcessedMessageDAO, ProviderSubscriptionDAO } from '@mail-otter/backend-data/dao';
 import type { D1Queryable } from '@mail-otter/backend-data/utils';
 import { EmailContentUtil } from '@mail-otter/provider-clients/email-content';
@@ -119,6 +119,7 @@ class EmailProcessingUtil {
         await EmailProcessingUtil.logActionsCreated(contextDAO, application, message.id, actions);
       }
       await GmailProviderUtil.sendSummaryReply(accessToken, application.providerEmail!, message, EmailProcessingUtil.withActionSection(summary.html, actions));
+      await EmailProcessingUtil.logSummarySent(contextDAO, application, message.id);
       await processedDAO.markSummarized(application.applicationId, message.id);
     } catch (error: unknown) {
       const processingError: Error = EmailProcessingUtil.classifyError(error);
@@ -225,6 +226,7 @@ class EmailProcessingUtil {
         await EmailProcessingUtil.logActionsCreated(contextDAO, application, message.id, actions);
       }
       await OutlookProviderUtil.sendSelfSummaryReply(accessToken, message, application.providerEmail!, EmailProcessingUtil.withActionSection(summary.html, actions));
+      await EmailProcessingUtil.logSummarySent(contextDAO, application, message.id);
       await processedDAO.markSummarized(application.applicationId, message.id);
     } catch (error: unknown) {
       const processingError: Error = EmailProcessingUtil.classifyError(error);
@@ -491,6 +493,24 @@ class EmailProcessingUtil {
       eventType: CONTEXT_AUDIT_EVENT_ACTION_CREATED,
       eventLabel: `Actions created from AI summary`,
       eventData: { actionCount: actions.length, actionTypes: actions.map((a) => a.action.actionType) },
+      severity: CONTEXT_AUDIT_LOG_SEVERITY_INFO,
+    });
+  }
+
+  private static async logSummarySent(
+    contextDAO: ApplicationContextDAO,
+    application: ConnectedApplication,
+    sourceDocumentId: string,
+  ): Promise<void> {
+    const contextDocumentId: string | undefined = await EmailProcessingUtil.getContextDocumentId(contextDAO, application, sourceDocumentId);
+    if (!contextDocumentId) return;
+    await EmailProcessingUtil.tryInsertAuditLog(contextDAO, {
+      contextDocumentId,
+      applicationId: application.applicationId,
+      userEmail: application.userEmail,
+      sourceDocumentId,
+      eventType: CONTEXT_AUDIT_EVENT_SUMMARY_SENT,
+      eventLabel: 'Summary email sent',
       severity: CONTEXT_AUDIT_LOG_SEVERITY_INFO,
     });
   }

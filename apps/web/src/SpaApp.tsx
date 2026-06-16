@@ -1455,6 +1455,7 @@ const auditEventLabels: Record<string, string> = {
   embedding_generated: 'Embedding Generated',
   rag_queried: 'RAG Context Queried',
   summary_generated: 'Summary Generated',
+  summary_sent: 'Summary Email Sent',
   action_created: 'Action Created',
   action_executed: 'Action Executed',
   document_deleted: 'Document Deleted',
