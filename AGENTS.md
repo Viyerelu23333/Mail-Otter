@@ -47,13 +47,15 @@ Always source the user's toolchain setup before Node, pnpm, npm, npx, or Wrangle
 source ~/.customrc
 volta run pnpm install
 volta run pnpm run dev
-volta run pnpm run typecheck
-volta run pnpm run test
 volta run pnpm run build
-volta run pnpm run lint
-volta run pnpm run checks
-volta run pnpm run deploy
 volta run pnpm run typegen
+volta run pnpm run deploy
+```
+
+For verification (typecheck, lint, and tests), run only:
+
+```bash
+volta run pnpm run checks
 ```
 
 Cloudflare command equivalents:
