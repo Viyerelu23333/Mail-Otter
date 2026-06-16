@@ -138,6 +138,7 @@ export type ContextAuditEventType =
   | 'embedding_generated'
   | 'rag_queried'
   | 'summary_generated'
+  | 'summary_sent'
   | 'action_created'
   | 'action_executed'
   | 'document_deleted'
