@@ -1,4 +1,4 @@
-# $version: v5-1781708264
+# $version: v6-1781708455
 name: Backup Main Branch
 permissions:
   contents: read
@@ -7,6 +7,8 @@ on:
   push:
     branches:
       - main
+  schedule:
+    - cron: '0 0 5 * *'
 
 jobs:
   backup:
