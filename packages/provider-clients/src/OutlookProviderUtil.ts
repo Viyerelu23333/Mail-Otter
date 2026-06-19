@@ -207,6 +207,21 @@ class OutlookProviderUtil {
     mailboxAddress: string,
     summary: string,
   ): Promise<void> {
+    // Idempotency: if summary already in Inbox, all previous steps completed
+    const inboxMsgId: string | null = await OutlookProviderUtil.findSummaryMessageInFolder(accessToken, 'inbox');
+    if (inboxMsgId) {
+      return;
+    }
+
+    // If summary in Sent Items only, reply was sent but copy+delete are pending
+    const sentMsgId: string | null = await OutlookProviderUtil.findSummaryMessageInFolder(accessToken, 'sentitems');
+    if (sentMsgId) {
+      await OutlookProviderUtil.copyMessage(accessToken, sentMsgId, 'inbox');
+      await OutlookProviderUtil.deleteMessage(accessToken, sentMsgId);
+      return;
+    }
+
+    // First attempt: send reply
     const atIndex: number = mailboxAddress.lastIndexOf('@');
     const sinkAddress: string = atIndex !== -1
       ? `${mailboxAddress.slice(0, atIndex)}+sink${mailboxAddress.slice(atIndex)}`
@@ -247,8 +262,8 @@ class OutlookProviderUtil {
     await OutlookProviderUtil.deleteMessage(accessToken, sentMessageId);
   }
 
-  private static async findSentSummaryMessage(accessToken: string): Promise<string> {
-    const url: URL = new URL('https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages');
+  private static async findSummaryMessageInFolder(accessToken: string, folderId: string): Promise<string | null> {
+    const url: URL = new URL(`https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages`);
     url.searchParams.set(
       '$filter',
       `internetMessageHeaders/any(h:h/name eq 'X-Mail-Otter-Summary' and h/value eq 'true')`,
@@ -259,10 +274,15 @@ class OutlookProviderUtil {
     const data = await OutlookProviderUtil.fetchJson<{
       value?: Array<{ id: string }> | undefined;
     }>(url.toString(), accessToken);
-    if (!data.value || data.value.length === 0) {
+    return data.value && data.value.length > 0 ? data.value[0].id : null;
+  }
+
+  private static async findSentSummaryMessage(accessToken: string): Promise<string> {
+    const id: string | null = await OutlookProviderUtil.findSummaryMessageInFolder(accessToken, 'sentitems');
+    if (!id) {
       throw new ProviderApiRetryableError('Microsoft Graph did not return the sent summary message.');
     }
-    return data.value[0].id;
+    return id;
   }
 
   public static isMessageNotFoundError(error: unknown): boolean {
@@ -314,7 +334,7 @@ class OutlookProviderUtil {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!response.ok && response.status !== 404) {
-      console.error(`Failed to delete Outlook message ${messageId}: ${await response.text()}`);
+      throw OutlookProviderUtil.createApiError('delete message', response, await response.text());
     }
   }
 }
