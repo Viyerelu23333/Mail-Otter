@@ -52,10 +52,10 @@ volta run pnpm run typegen
 volta run pnpm run deploy
 ```
 
-For verification (typecheck, lint, and tests), run only:
+For verification (typecheck, lint, and tests with coverage), run only:
 
 ```bash
-volta run pnpm run checks
+volta run pnpm -r typecheck && pnpm run lint && pnpm run test:coverage
 ```
 
 Cloudflare command equivalents:
