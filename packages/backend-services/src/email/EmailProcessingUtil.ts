@@ -1,4 +1,4 @@
-import { PROVIDER_SUBSCRIPTION_STATUS_ACTIVE, SOURCE_TYPE_EMAIL, CONTEXT_AUDIT_EVENT_PROCESSING_STARTED, CONTEXT_AUDIT_EVENT_SUMMARY_GENERATED, CONTEXT_AUDIT_EVENT_SUMMARY_SENT, CONTEXT_AUDIT_EVENT_ACTION_CREATED, CONTEXT_AUDIT_EVENT_ERROR, CONTEXT_AUDIT_LOG_SEVERITY_INFO, CONTEXT_AUDIT_LOG_SEVERITY_WARNING, CONTEXT_AUDIT_LOG_SEVERITY_ERROR } from '@mail-otter/shared/constants';
+import { PROCESSED_MESSAGE_STATUS_SUMMARIZED, PROVIDER_SUBSCRIPTION_STATUS_ACTIVE, SOURCE_TYPE_EMAIL, CONTEXT_AUDIT_EVENT_PROCESSING_STARTED, CONTEXT_AUDIT_EVENT_SUMMARY_GENERATED, CONTEXT_AUDIT_EVENT_SUMMARY_SENT, CONTEXT_AUDIT_EVENT_ACTION_CREATED, CONTEXT_AUDIT_EVENT_ERROR, CONTEXT_AUDIT_LOG_SEVERITY_INFO, CONTEXT_AUDIT_LOG_SEVERITY_WARNING, CONTEXT_AUDIT_LOG_SEVERITY_ERROR } from '@mail-otter/shared/constants';
 import { AiDailyUsageDAO, ApplicationContextDAO, ConnectedApplicationDAO, ProcessedMessageDAO, ProviderSubscriptionDAO } from '@mail-otter/backend-data/dao';
 import type { D1Queryable } from '@mail-otter/backend-data/utils';
 import { EmailContentUtil } from '@mail-otter/provider-clients/email-content';
@@ -170,6 +170,10 @@ class EmailProcessingUtil {
   public static async sendGmailSummary(data: GmailSummaryData, env: EmailProcessingEnv): Promise<void> {
     const contextDAO = new ApplicationContextDAO(env.DB);
     const processedDAO = new ProcessedMessageDAO(env.DB);
+    const existing = await processedDAO.getByMessageId(data.application.applicationId, data.messageId);
+    if (existing?.status === PROCESSED_MESSAGE_STATUS_SUMMARIZED) {
+      return;
+    }
     try {
       await GmailProviderUtil.sendSummaryReply(data.accessToken, data.application.providerEmail!, data.message, data.summaryHtml);
       await EmailProcessingUtil.logSummarySent(contextDAO, data.application, data.messageId, data.options.retryAttempt);
@@ -298,6 +302,10 @@ class EmailProcessingUtil {
   public static async sendOutlookSummary(data: OutlookSummaryData, env: EmailProcessingEnv): Promise<void> {
     const contextDAO = new ApplicationContextDAO(env.DB);
     const processedDAO = new ProcessedMessageDAO(env.DB);
+    const existing = await processedDAO.getByMessageId(data.application.applicationId, data.messageId);
+    if (existing?.status === PROCESSED_MESSAGE_STATUS_SUMMARIZED) {
+      return;
+    }
     try {
       await OutlookProviderUtil.sendSelfSummaryReply(data.accessToken, data.message, data.application.providerEmail!, data.summaryHtml);
       await EmailProcessingUtil.logSummarySent(contextDAO, data.application, data.messageId, data.options.retryAttempt);
