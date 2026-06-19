@@ -1500,10 +1500,11 @@ function AuditLogsModal({
           <h2 className="text-lg font-semibold text-white">Document Audit Logs</h2>
           <div className="flex items-center gap-2">
             <button
-              className="px-3 py-1.5 rounded-md bg-[#2d3745] hover:bg-[#3b4655] disabled:opacity-50 text-sm"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#6ee7b7] hover:bg-[#4dd4a8] disabled:opacity-50 disabled:cursor-not-allowed text-[#0d1118] text-sm font-medium transition-colors"
               onClick={onRefresh}
               disabled={loading}
             >
+              <span className={loading ? 'animate-spin inline-block' : 'inline-block'}>↻</span>
               Refresh
             </button>
             <button className="text-[#9ca3af] hover:text-white text-xl leading-none" onClick={onClose}>&times;</button>
