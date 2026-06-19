@@ -34,6 +34,7 @@ class ConnectedApplicationDAO {
     credentials: ConnectedApplicationCredentials,
     status: string,
     gmailPubsubTopicName?: string | null,
+    enabledFeatures?: string[] | null,
   ): Promise<ConnectedApplicationMetadata> {
     const now: number = TimestampUtil.getCurrentUnixTimestampInSeconds();
     const applicationId: string = UUIDUtil.getRandomUUID();
@@ -67,6 +68,9 @@ class ConnectedApplicationDAO {
     );
     if (gmailPubsubTopicName) {
       await this.setProviderConfig(applicationId, 'gmail_pubsub_topic_name', gmailPubsubTopicName, now);
+    }
+    if (enabledFeatures && enabledFeatures.length > 0) {
+      await this.setProviderConfig(applicationId, 'oauth2_enabled_features', JSON.stringify(enabledFeatures), now);
     }
     const application: ConnectedApplicationMetadata | undefined = await this.getMetadataByIdForUser(applicationId, userEmail);
     if (!application) {
@@ -136,6 +140,7 @@ class ConnectedApplicationDAO {
     credentials: ConnectedApplicationCredentials,
     status: string,
     gmailPubsubTopicName?: string | null,
+    enabledFeatures?: string[] | null,
   ): Promise<ConnectedApplicationMetadata | undefined> {
     const now: number = TimestampUtil.getCurrentUnixTimestampInSeconds();
     const encrypted = await encryptData(JSON.stringify(credentials), this.masterKey);
@@ -157,6 +162,11 @@ class ConnectedApplicationDAO {
       await this.setProviderConfig(applicationId, 'gmail_pubsub_topic_name', gmailPubsubTopicName, now);
     } else if (gmailPubsubTopicName === null) {
       await this.deleteProviderConfig(applicationId, 'gmail_pubsub_topic_name');
+    }
+    if (enabledFeatures && enabledFeatures.length > 0) {
+      await this.setProviderConfig(applicationId, 'oauth2_enabled_features', JSON.stringify(enabledFeatures), now);
+    } else if (enabledFeatures !== undefined) {
+      await this.deleteProviderConfig(applicationId, 'oauth2_enabled_features');
     }
     return this.getMetadataByIdForUser(applicationId, userEmail);
   }
@@ -396,9 +406,14 @@ class ConnectedApplicationDAO {
         : row.status === CONNECTED_APPLICATION_STATUS_ERROR
           ? CONNECTED_APPLICATION_STATUS_ERROR
           : CONNECTED_APPLICATION_STATUS_DRAFT;
-    const [watchedFolders, gmailPubsubTopicName]: [Array<{ folderPath: string; folderName: string }>, string | null] = await Promise.all([
+    const [watchedFolders, gmailPubsubTopicName, enabledFeaturesJson]: [
+      Array<{ folderPath: string; folderName: string }>,
+      string | null,
+      string | null,
+    ] = await Promise.all([
       this.getWatchedFolders(row.application_id),
       this.getProviderConfig(row.application_id, 'gmail_pubsub_topic_name'),
+      this.getProviderConfig(row.application_id, 'oauth2_enabled_features'),
     ]);
     return {
       applicationId: row.application_id,
@@ -410,6 +425,7 @@ class ConnectedApplicationDAO {
       status,
       contextIndexingEnabled: row.context_indexing_enabled !== 0,
       maxContextDocuments: row.max_context_documents ?? null,
+      enabledFeatures: enabledFeaturesJson ? (JSON.parse(enabledFeaturesJson) as string[]) : null,
       watchedFolders: watchedFolders.length > 0 ? watchedFolders.map((f) => ({ id: f.folderPath, name: f.folderName })) : null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,

@@ -148,6 +148,7 @@ export default function SpaApp() {
       clientId: '',
       clientSecret: '',
       gmailPubsubTopicName: app.gmailPubsubTopicName || '',
+      enabledFeatures: app.enabledFeatures || [],
     });
   };
 
@@ -161,6 +162,7 @@ export default function SpaApp() {
         connectionMethod: providerMethod[applicationForm.providerId],
         clientId: applicationForm.clientId,
         clientSecret: applicationForm.clientSecret,
+        enabledFeatures: applicationForm.enabledFeatures,
         ...(applicationForm.providerId === 'google-gmail' ? { gmailPubsubTopicName: applicationForm.gmailPubsubTopicName } : {}),
       };
       const res = await apiFetch('/user/application', {

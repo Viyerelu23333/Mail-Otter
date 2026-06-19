@@ -18,6 +18,7 @@ interface ConnectedApplicationMetadata {
   status: ConnectedApplicationStatus;
   contextIndexingEnabled: boolean;
   maxContextDocuments?: number | null | undefined;
+  enabledFeatures?: string[] | null | undefined;
   gmailPubsubTopicName?: string | null | undefined;
   watchedFolders?: Array<{ id: string; name: string }> | null | undefined;
   oauth2RedirectUri?: string | undefined;

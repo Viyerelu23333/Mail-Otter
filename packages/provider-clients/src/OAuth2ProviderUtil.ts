@@ -1,4 +1,4 @@
-import { PROVIDER_GOOGLE_GMAIL, PROVIDER_MICROSOFT_OUTLOOK } from '@mail-otter/shared/constants';
+import { OAUTH2_FEATURE_SCOPES, PROVIDER_GOOGLE_GMAIL, PROVIDER_MICROSOFT_OUTLOOK } from '@mail-otter/shared/constants';
 import type { ProviderId } from '@mail-otter/shared/constants';
 import { BadRequestError, InternalServerError } from '@mail-otter/backend-errors';
 import type { OAuth2Credentials } from '@mail-otter/shared/model';
@@ -9,6 +9,7 @@ interface OAuth2AuthorizationInput {
   redirectUri: string;
   state: string;
   codeChallenge: string;
+  enabledFeatures?: string[];
 }
 
 interface OAuth2TokenExchangeInput {
@@ -34,14 +35,14 @@ const ProviderConfig = {
   [PROVIDER_GOOGLE_GMAIL]: {
     authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
     tokenEndpoint: 'https://oauth2.googleapis.com/token',
-    scope:
-      'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/calendar.events',
+    requiredScopes:
+      'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.compose',
   },
   [PROVIDER_MICROSOFT_OUTLOOK]: {
     authorizationEndpoint: 'https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize',
     tokenEndpoint: 'https://login.microsoftonline.com/consumers/oauth2/v2.0/token',
-    scope:
-      'https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite offline_access',
+    requiredScopes:
+      'https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send offline_access',
   },
 } as const;
 
@@ -52,7 +53,11 @@ class OAuth2ProviderUtil {
     url.searchParams.set('client_id', input.clientId);
     url.searchParams.set('redirect_uri', input.redirectUri);
     url.searchParams.set('response_type', 'code');
-    url.searchParams.set('scope', config.scope);
+    const optionalScopes: string[] = (input.enabledFeatures ?? []).flatMap(
+      (feature: string): string[] => OAUTH2_FEATURE_SCOPES[feature]?.[input.providerId] ?? [],
+    );
+    const scope: string = [config.requiredScopes, ...optionalScopes].join(' ');
+    url.searchParams.set('scope', scope);
     url.searchParams.set('state', input.state);
     url.searchParams.set('code_challenge', input.codeChallenge);
     url.searchParams.set('code_challenge_method', 'S256');
