@@ -34,6 +34,7 @@ interface UpdateApplicationRequest extends IRequest {
   clientId: string;
   clientSecret: string;
   gmailPubsubTopicName?: string | undefined;
+  enabledFeatures?: string[] | undefined;
 }
 
 interface UpdateApplicationResponse extends IResponse {

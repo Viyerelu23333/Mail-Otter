@@ -48,6 +48,7 @@ class ApplicationService {
       credentials,
       CONNECTED_APPLICATION_STATUS_DRAFT,
       input.gmailPubsubTopicName || null,
+      input.enabledFeatures || null,
     );
     return ApplicationResponseUtil.decorateApplication(application, env, raw);
   }
@@ -79,6 +80,7 @@ class ApplicationService {
       credentials,
       CONNECTED_APPLICATION_STATUS_DRAFT,
       input.gmailPubsubTopicName || null,
+      input.enabledFeatures,
     );
     if (!application) {
       throw new BadRequestError('Connected application was not found.');
@@ -132,6 +134,7 @@ interface CreateUserApplicationInput {
   clientId: string;
   clientSecret: string;
   gmailPubsubTopicName?: string | undefined;
+  enabledFeatures?: string[] | null | undefined;
 }
 
 interface UpdateUserApplicationInput extends CreateUserApplicationInput {

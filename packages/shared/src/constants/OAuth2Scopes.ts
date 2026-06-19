@@ -1,5 +1,3 @@
-const ZERO_TRUST_AUTHENTICATION_PATH = '/user/';
-
 interface OAuth2Feature {
   label: string;
 }
@@ -15,5 +13,5 @@ const OAUTH2_FEATURE_SCOPES: Record<string, Record<string, string[]>> = {
   },
 };
 
-export { OAUTH2_FEATURE_SCOPES, OAUTH2_FEATURES, ZERO_TRUST_AUTHENTICATION_PATH };
+export { OAUTH2_FEATURES, OAUTH2_FEATURE_SCOPES };
 export type { OAuth2Feature };

@@ -43,6 +43,7 @@ class OAuth2AuthorizationService {
         redirectUri,
         state,
         codeChallenge,
+        enabledFeatures: application.enabledFeatures ?? [],
       }),
       redirectUri,
       expiresAt,

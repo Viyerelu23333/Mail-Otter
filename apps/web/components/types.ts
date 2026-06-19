@@ -16,6 +16,7 @@ export interface ConnectedApplication {
   providerId: ProviderId;
   connectionMethod: 'oauth2';
   status: 'draft' | 'connected' | 'error';
+  enabledFeatures?: string[] | null;
   gmailPubsubTopicName?: string | null;
   watchedFolders?: Array<{ id: string; name: string }> | null;
   oauth2RedirectUri?: string;
