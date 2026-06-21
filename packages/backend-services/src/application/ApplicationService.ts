@@ -72,17 +72,21 @@ class ApplicationService {
     }
 
     const existingOAuth2 = existing.credentials as OAuth2Credentials;
+    const newClientId = input.clientId || existingOAuth2.clientId;
+    const newClientSecret = input.clientSecret || existingOAuth2.clientSecret;
     const credentials: ConnectedApplicationCredentials = {
-      clientId: input.clientId || existingOAuth2.clientId,
-      clientSecret: input.clientSecret || existingOAuth2.clientSecret,
+      clientId: newClientId,
+      clientSecret: newClientSecret,
       refreshToken: existingOAuth2.refreshToken,
     };
+    const credentialsChanged = newClientId !== existingOAuth2.clientId || newClientSecret !== existingOAuth2.clientSecret;
+    const newStatus = credentialsChanged ? CONNECTED_APPLICATION_STATUS_DRAFT : existing.status;
     const application: ConnectedApplicationMetadata | undefined = await applicationDAO.updateForUser(
       input.applicationId,
       userEmail,
       input.displayName,
       credentials,
-      CONNECTED_APPLICATION_STATUS_DRAFT,
+      newStatus,
       input.gmailPubsubTopicName || null,
       input.enabledFeatures,
       input.senderDomainFilters,
