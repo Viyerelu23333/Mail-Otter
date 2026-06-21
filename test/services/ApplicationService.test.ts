@@ -247,6 +247,54 @@ describe('ApplicationService', () => {
       const lastArg = mockUpdateForUser.mock.calls[0]?.at(-1);
       expect(lastArg).toBeUndefined();
     });
+
+    it('preserves connected status when credentials are unchanged', async () => {
+      mockGetByIdForUser.mockResolvedValue({
+        applicationId: 'app-1',
+        providerId: 'google-gmail',
+        connectionMethod: 'oauth2',
+        status: 'connected',
+        credentials: { clientId: 'cid', clientSecret: 'cs', refreshToken: 'rt' },
+      });
+      mockUpdateForUser.mockResolvedValue({ applicationId: 'app-1' });
+
+      await ApplicationService.updateUserApplication(
+        'user@example.com',
+        {
+          applicationId: 'app-1',
+          displayName: 'Updated',
+          providerId: 'google-gmail',
+          connectionMethod: 'oauth2',
+          senderDomainFilters: { includeRules: ['@company.com'], excludeRules: [] },
+        },
+        makeEnv(),
+        new Request('https://example.com'),
+      );
+
+      const statusArg = mockUpdateForUser.mock.calls[0]?.[4];
+      expect(statusArg).toBe('connected');
+    });
+
+    it('resets to draft when clientId changes', async () => {
+      mockGetByIdForUser.mockResolvedValue({
+        applicationId: 'app-1',
+        providerId: 'google-gmail',
+        connectionMethod: 'oauth2',
+        status: 'connected',
+        credentials: { clientId: 'old-cid', clientSecret: 'cs', refreshToken: 'rt' },
+      });
+      mockUpdateForUser.mockResolvedValue({ applicationId: 'app-1' });
+
+      await ApplicationService.updateUserApplication(
+        'user@example.com',
+        { applicationId: 'app-1', displayName: 'Updated', providerId: 'google-gmail', connectionMethod: 'oauth2', clientId: 'new-cid' },
+        makeEnv(),
+        new Request('https://example.com'),
+      );
+
+      const statusArg = mockUpdateForUser.mock.calls[0]?.[4];
+      expect(statusArg).toBe('draft');
+    });
   });
 
   describe('updateWatchedFolderIds', () => {
