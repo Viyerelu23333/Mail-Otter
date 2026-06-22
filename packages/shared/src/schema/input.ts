@@ -36,7 +36,6 @@ const UpdateApplicationBodySchema = z
     senderDomainFilters: z
       .object({
         includeRules: z.array(z.string().max(320)).max(100),
-        excludeRules: z.array(z.string().max(320)).max(100),
       })
       .optional()
       .nullable(),

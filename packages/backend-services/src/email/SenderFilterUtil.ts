@@ -24,13 +24,6 @@ class SenderFilterUtil {
   ): { skip: false } | { skip: true; reason: string } {
     const address = SenderFilterUtil.extractEmailAddress(from);
 
-    if (filters.excludeRules.length > 0) {
-      const excluded = filters.excludeRules.some((r) => SenderFilterUtil.matchesPattern(address, r));
-      if (excluded) {
-        return { skip: true, reason: 'Sender matches application exclude filter rules.' };
-      }
-    }
-
     if (filters.includeRules.length > 0) {
       const included = filters.includeRules.some((r) => SenderFilterUtil.matchesPattern(address, r));
       if (!included) {

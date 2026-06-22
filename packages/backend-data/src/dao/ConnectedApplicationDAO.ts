@@ -176,7 +176,7 @@ class ConnectedApplicationDAO {
     } else if (enabledFeatures !== undefined) {
       await this.deleteProviderConfig(applicationId, 'oauth2_enabled_features');
     }
-    if (senderDomainFilters != null && (senderDomainFilters.includeRules.length > 0 || senderDomainFilters.excludeRules.length > 0)) {
+    if (senderDomainFilters != null && senderDomainFilters.includeRules.length > 0) {
       await this.setProviderConfig(applicationId, 'sender_domain_filters', JSON.stringify(senderDomainFilters), now);
     } else if (senderDomainFilters !== undefined) {
       await this.deleteProviderConfig(applicationId, 'sender_domain_filters');
@@ -439,6 +439,36 @@ class ConnectedApplicationDAO {
       this.getProviderConfig(row.application_id, 'calendar_time_zone'),
       this.getProviderConfig(row.application_id, 'email_processing_rules'),
     ]);
+    // Lazily migrate legacy excludeRules (stored in sender_domain_filters) into email processing rules
+    let senderDomainFilters: SenderDomainFilters | null = null;
+    let resolvedRulesJson: string | null = emailProcessingRulesJson;
+    if (senderDomainFiltersJson) {
+      const parsed = JSON.parse(senderDomainFiltersJson) as { includeRules?: string[]; excludeRules?: string[] };
+      const legacyExcludes = parsed.excludeRules ?? [];
+      const includeRules = parsed.includeRules ?? [];
+      if (legacyExcludes.length > 0) {
+        const migratedRules: EmailProcessingRule[] = legacyExcludes.map((pattern) => ({
+          ruleId: UUIDUtil.getRandomUUID(),
+          name: `Block ${pattern}`,
+          enabled: true,
+          conditions: { operator: 'any' as const, matchers: [{ field: 'from' as const, op: 'matches_sender' as const, value: pattern }] },
+          action: { type: 'skip' as const },
+        }));
+        const existingRules: EmailProcessingRule[] = emailProcessingRulesJson ? (JSON.parse(emailProcessingRulesJson) as EmailProcessingRule[]) : [];
+        const merged = [...existingRules, ...migratedRules];
+        resolvedRulesJson = JSON.stringify(merged);
+        await this.setProviderConfig(row.application_id, 'email_processing_rules', resolvedRulesJson);
+        if (includeRules.length > 0) {
+          await this.setProviderConfig(row.application_id, 'sender_domain_filters', JSON.stringify({ includeRules }));
+          senderDomainFilters = { includeRules };
+        } else {
+          await this.deleteProviderConfig(row.application_id, 'sender_domain_filters');
+        }
+      } else {
+        senderDomainFilters = includeRules.length > 0 ? { includeRules } : null;
+      }
+    }
+
     return {
       applicationId: row.application_id,
       userEmail: row.user_email,
@@ -451,8 +481,8 @@ class ConnectedApplicationDAO {
       maxContextDocuments: row.max_context_documents ?? null,
       enabledFeatures: enabledFeaturesJson ? (JSON.parse(enabledFeaturesJson) as string[]) : null,
       timeZone: timeZone ?? null,
-      senderDomainFilters: senderDomainFiltersJson ? (JSON.parse(senderDomainFiltersJson) as SenderDomainFilters) : null,
-      emailProcessingRules: emailProcessingRulesJson ? (JSON.parse(emailProcessingRulesJson) as EmailProcessingRule[]) : null,
+      senderDomainFilters,
+      emailProcessingRules: resolvedRulesJson ? (JSON.parse(resolvedRulesJson) as EmailProcessingRule[]) : null,
       watchedFolders: watchedFolders.length > 0 ? watchedFolders.map((f) => ({ id: f.folderPath, name: f.folderName })) : null,
       lastErrorAcknowledgedAt: row.last_error_acknowledged_at ?? null,
       contextLastErrorAcknowledgedAt: row.context_last_error_acknowledged_at ?? null,

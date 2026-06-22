@@ -194,7 +194,7 @@ describe('ApplicationService', () => {
         credentials: { refreshToken: 'rt' },
       });
       mockUpdateForUser.mockResolvedValue({ applicationId: 'app-1' });
-      const filters = { includeRules: ['@company.com'], excludeRules: [] };
+      const filters = { includeRules: ['@company.com'] };
 
       await ApplicationService.updateUserApplication(
         'user@example.com',
@@ -265,7 +265,7 @@ describe('ApplicationService', () => {
           displayName: 'Updated',
           providerId: 'google-gmail',
           connectionMethod: 'oauth2',
-          senderDomainFilters: { includeRules: ['@company.com'], excludeRules: [] },
+          senderDomainFilters: { includeRules: ['@company.com'] },
         },
         makeEnv(),
         new Request('https://example.com'),
