@@ -283,11 +283,12 @@ class EmailProcessingUtil {
     const maxChars: number = ConfigurationManager.getMaxEmailBodyChars(env);
     const bodyText: string = body || '(empty message body)';
     const input: string = EmailContentUtil.truncate(bodyText, maxChars);
-    const promptText: string = EmailSummaryUtil.buildEmailSummaryPromptText(subject, from, input, ragContext);
+    const timeZone: string | undefined = application.timeZone ?? undefined;
+    const promptText: string = EmailSummaryUtil.buildEmailSummaryPromptText(subject, from, input, ragContext, timeZone);
     let model: string = await EmailProcessingUtil.resolveSummaryModel(env, promptText);
     let result: EmailSummaryResult;
     try {
-      result = await EmailSummaryUtil.summarizeEmailWithUsage(env.AI, model, subject, from, input, ragContext);
+      result = await EmailSummaryUtil.summarizeEmailWithUsage(env.AI, model, subject, from, input, ragContext, timeZone);
     } catch (error: unknown) {
       if (!(error instanceof AiSummaryRetryableError)) throw error;
       await EmailProcessingUtil.recordSummaryFailureUsage(env, model, error, promptText);
@@ -296,7 +297,7 @@ class EmailProcessingUtil {
       console.warn(`AI summary failed with primary model ${model}, retrying with fallback ${fallbackModel}:`, error);
       model = fallbackModel;
       try {
-        result = await EmailSummaryUtil.summarizeEmailWithUsage(env.AI, model, subject, from, input, ragContext);
+        result = await EmailSummaryUtil.summarizeEmailWithUsage(env.AI, model, subject, from, input, ragContext, timeZone);
       } catch (fallbackError: unknown) {
         if (fallbackError instanceof AiSummaryRetryableError) {
           await EmailProcessingUtil.recordSummaryFailureUsage(env, model, fallbackError, promptText);

@@ -16,7 +16,7 @@ import type {
   OAuth2Credentials,
   SenderDomainFilters,
 } from '@mail-otter/shared/model';
-import { TimestampUtil, UUIDUtil } from '@mail-otter/shared/utils';
+import { TimestampUtil, TimeZoneUtil, UUIDUtil } from '@mail-otter/shared/utils';
 
 class ConnectedApplicationDAO {
   protected readonly database: D1Queryable;
@@ -36,6 +36,7 @@ class ConnectedApplicationDAO {
     status: string,
     gmailPubsubTopicName?: string | null,
     enabledFeatures?: string[] | null,
+    timeZone?: string | null,
   ): Promise<ConnectedApplicationMetadata> {
     const now: number = TimestampUtil.getCurrentUnixTimestampInSeconds();
     const applicationId: string = UUIDUtil.getRandomUUID();
@@ -72,6 +73,9 @@ class ConnectedApplicationDAO {
     }
     if (enabledFeatures && enabledFeatures.length > 0) {
       await this.setProviderConfig(applicationId, 'oauth2_enabled_features', JSON.stringify(enabledFeatures), now);
+    }
+    if (timeZone) {
+      await this.setProviderConfig(applicationId, 'calendar_time_zone', TimeZoneUtil.normalize(timeZone), now);
     }
     const application: ConnectedApplicationMetadata | undefined = await this.getMetadataByIdForUser(applicationId, userEmail);
     if (!application) {
@@ -143,6 +147,7 @@ class ConnectedApplicationDAO {
     gmailPubsubTopicName?: string | null,
     enabledFeatures?: string[] | null,
     senderDomainFilters?: SenderDomainFilters | null,
+    timeZone?: string | null,
   ): Promise<ConnectedApplicationMetadata | undefined> {
     const now: number = TimestampUtil.getCurrentUnixTimestampInSeconds();
     const encrypted = await encryptData(JSON.stringify(credentials), this.masterKey);
@@ -174,6 +179,11 @@ class ConnectedApplicationDAO {
       await this.setProviderConfig(applicationId, 'sender_domain_filters', JSON.stringify(senderDomainFilters), now);
     } else if (senderDomainFilters !== undefined) {
       await this.deleteProviderConfig(applicationId, 'sender_domain_filters');
+    }
+    if (timeZone) {
+      await this.setProviderConfig(applicationId, 'calendar_time_zone', TimeZoneUtil.normalize(timeZone), now);
+    } else if (timeZone === null) {
+      await this.deleteProviderConfig(applicationId, 'calendar_time_zone');
     }
     return this.getMetadataByIdForUser(applicationId, userEmail);
   }
@@ -413,8 +423,9 @@ class ConnectedApplicationDAO {
         : row.status === CONNECTED_APPLICATION_STATUS_ERROR
           ? CONNECTED_APPLICATION_STATUS_ERROR
           : CONNECTED_APPLICATION_STATUS_DRAFT;
-    const [watchedFolders, gmailPubsubTopicName, enabledFeaturesJson, senderDomainFiltersJson]: [
+    const [watchedFolders, gmailPubsubTopicName, enabledFeaturesJson, senderDomainFiltersJson, timeZone]: [
       Array<{ folderPath: string; folderName: string }>,
+      string | null,
       string | null,
       string | null,
       string | null,
@@ -423,6 +434,7 @@ class ConnectedApplicationDAO {
       this.getProviderConfig(row.application_id, 'gmail_pubsub_topic_name'),
       this.getProviderConfig(row.application_id, 'oauth2_enabled_features'),
       this.getProviderConfig(row.application_id, 'sender_domain_filters'),
+      this.getProviderConfig(row.application_id, 'calendar_time_zone'),
     ]);
     return {
       applicationId: row.application_id,
@@ -435,6 +447,7 @@ class ConnectedApplicationDAO {
       contextIndexingEnabled: row.context_indexing_enabled !== 0,
       maxContextDocuments: row.max_context_documents ?? null,
       enabledFeatures: enabledFeaturesJson ? (JSON.parse(enabledFeaturesJson) as string[]) : null,
+      timeZone: timeZone ?? null,
       senderDomainFilters: senderDomainFiltersJson ? (JSON.parse(senderDomainFiltersJson) as SenderDomainFilters) : null,
       watchedFolders: watchedFolders.length > 0 ? watchedFolders.map((f) => ({ id: f.folderPath, name: f.folderName })) : null,
       lastErrorAcknowledgedAt: row.last_error_acknowledged_at ?? null,

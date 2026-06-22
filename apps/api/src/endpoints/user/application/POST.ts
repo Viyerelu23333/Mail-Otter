@@ -33,6 +33,7 @@ interface CreateApplicationRequest extends IRequest {
   clientSecret: string;
   gmailPubsubTopicName?: string | undefined;
   enabledFeatures?: string[] | undefined;
+  timeZone?: string | undefined;
 }
 
 interface CreateApplicationResponse extends IResponse {

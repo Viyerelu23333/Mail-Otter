@@ -51,6 +51,7 @@ export function useMailboxes({ setIsBusy, showNotice, onContextChanged }: UseMai
       clientSecret: '',
       gmailPubsubTopicName: app.gmailPubsubTopicName || '',
       enabledFeatures: app.enabledFeatures || [],
+      timeZone: app.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
     setIsFormExpanded(true);
   };

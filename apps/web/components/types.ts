@@ -27,6 +27,7 @@ export interface ConnectedApplication {
   connectionMethod: 'oauth2';
   status: 'draft' | 'connected' | 'error';
   enabledFeatures?: string[] | null;
+  timeZone?: string | null;
   senderDomainFilters?: SenderDomainFilters | null;
   gmailPubsubTopicName?: string | null;
   watchedFolders?: Array<{ id: string; name: string }> | null;

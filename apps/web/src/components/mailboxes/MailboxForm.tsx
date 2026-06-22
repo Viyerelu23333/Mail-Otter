@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { ProviderId } from '../../../components/types';
 import { OAUTH2_FEATURES, OAUTH2_FEATURE_SCOPES } from '../../../components/constants';
@@ -16,6 +16,11 @@ export interface ApplicationFormState {
   clientSecret: string;
   gmailPubsubTopicName: string;
   enabledFeatures: string[];
+  timeZone: string;
+}
+
+function getBrowserTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
 
 export const emptyForm: ApplicationFormState = {
@@ -25,6 +30,7 @@ export const emptyForm: ApplicationFormState = {
   clientSecret: '',
   gmailPubsubTopicName: '',
   enabledFeatures: [],
+  timeZone: getBrowserTimeZone(),
 };
 
 export function MailboxForm({
@@ -70,6 +76,12 @@ export function MailboxForm({
   const providerFeatures: [string, OAuth2Feature][] = (Object.entries(OAUTH2_FEATURES) as [string, OAuth2Feature][]).filter(
     ([featureId]) => (OAUTH2_FEATURE_SCOPES[featureId]?.[form.providerId] ?? []).length > 0,
   );
+
+  const timeZones: string[] = useMemo(() => {
+    const supportedValuesOf = (Intl as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf;
+    const supported: string[] = typeof supportedValuesOf === 'function' ? supportedValuesOf('timeZone') : ['UTC'];
+    return supported.includes(form.timeZone) ? supported : [form.timeZone, ...supported];
+  }, [form.timeZone]);
 
   return (
     <div
@@ -144,6 +156,16 @@ export function MailboxForm({
               ))}
             </div>
           )}
+          <div className="space-y-1.5 pt-1">
+            <p className="text-xs font-medium text-[var(--color-text-secondary)]">Time Zone</p>
+            <Select value={form.timeZone} onChange={(e) => update({ timeZone: e.target.value })} className="w-full">
+              {timeZones.map((tz) => (
+                <option key={tz} value={tz}>
+                  {tz}
+                </option>
+              ))}
+            </Select>
+          </div>
           <div className="flex gap-2 pt-1">
             <Button variant="primary" className="flex-1" onClick={onSave} loading={busy}>
               {form.applicationId ? 'Save Changes' : 'Create Mailbox'}

@@ -11,7 +11,7 @@ export function ActionPayloadDetails({ action }: { action: EmailAction }) {
       <div className={cardClass}>
         <div className={titleClass}>Calendar Event</div>
         <div>{String(payload.eventTitle || action.title)}</div>
-        <div>{String(payload.startTime || '')} to {String(payload.endTime || '')}</div>
+        <div>{String(payload.startTime || '')} to {String(payload.endTime || '')}{payload.timeZone ? ` (${String(payload.timeZone)})` : ''}</div>
         {payload.location ? <div>{String(payload.location)}</div> : null}
       </div>
     );
