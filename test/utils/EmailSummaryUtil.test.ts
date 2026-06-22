@@ -193,6 +193,26 @@ describe('EmailSummaryUtil', () => {
       });
   });
 
+  describe('buildEmailSummaryPromptText', () => {
+    it('embeds the mailbox time zone and resolves today in that zone', () => {
+      const prompt = EmailSummaryUtil.buildEmailSummaryPromptText('Subject', 'sam@example.com', 'body', undefined, 'America/Los_Angeles');
+      expect(prompt).toContain('America/Los_Angeles');
+      const expectedToday = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Los_Angeles',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date());
+      expect(prompt).toContain(`Today is ${expectedToday}`);
+      expect(prompt).toContain('use America/Los_Angeles unless the email explicitly states another time zone');
+    });
+
+    it('falls back to UTC when no time zone is provided', () => {
+      const prompt = EmailSummaryUtil.buildEmailSummaryPromptText('Subject', 'sam@example.com', 'body');
+      expect(prompt).toContain("time zone UTC");
+    });
+  });
+
   it('uses Chat Completions totals as billed output tokens when reasoning details are present', async () => {
     const ai = {
       run: vi.fn().mockResolvedValue({

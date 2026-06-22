@@ -451,6 +451,82 @@ describe('ActionService', () => {
       expect(result).toHaveLength(1);
     });
 
+    it('defaults calendar timeZone to the application timezone when the model omits it', async () => {
+      mockDeleteByProcessedMessageId.mockResolvedValue(undefined);
+      mockCreate.mockResolvedValue(makeAction({ actionType: 'calendar.add_event' }));
+
+      await ActionService.createActionsForSummary(
+        {
+          application: { applicationId: 'app-1', userEmail: 'user@example.com', providerId: 'google-gmail', timeZone: 'America/Los_Angeles' },
+          processedMessage: { processedMessageId: 'pm-1', providerMessageId: 'msg-1', providerThreadId: 'thread-1' } as never,
+          subject: 'Team sync',
+          from: 'organizer@example.com',
+          body: '',
+          callbackBaseUrl: 'https://example.com',
+          proposals: [{
+            type: 'calendar.add_event',
+            title: 'Team Sync',
+            description: 'Weekly standup',
+            parameters: { startTime: '2026-07-01T10:00:00', endTime: '2026-07-01T11:00:00' },
+          }],
+        },
+        makeEnv() as never,
+      );
+
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      expect(mockCreate.mock.calls[0][0].payload).toMatchObject({ type: 'calendar.add_event', timeZone: 'America/Los_Angeles' });
+    });
+
+    it('preserves an explicit model-provided timeZone over the application timezone', async () => {
+      mockDeleteByProcessedMessageId.mockResolvedValue(undefined);
+      mockCreate.mockResolvedValue(makeAction({ actionType: 'calendar.add_event' }));
+
+      await ActionService.createActionsForSummary(
+        {
+          application: { applicationId: 'app-1', userEmail: 'user@example.com', providerId: 'google-gmail', timeZone: 'America/Los_Angeles' },
+          processedMessage: { processedMessageId: 'pm-1', providerMessageId: 'msg-1', providerThreadId: 'thread-1' } as never,
+          subject: 'Team sync',
+          from: 'organizer@example.com',
+          body: '',
+          callbackBaseUrl: 'https://example.com',
+          proposals: [{
+            type: 'calendar.add_event',
+            title: 'Team Sync',
+            description: 'Weekly standup',
+            parameters: { startTime: '2026-07-01T10:00:00', endTime: '2026-07-01T11:00:00', timeZone: 'Europe/Berlin' },
+          }],
+        },
+        makeEnv() as never,
+      );
+
+      expect(mockCreate.mock.calls[0][0].payload).toMatchObject({ timeZone: 'Europe/Berlin' });
+    });
+
+    it('falls back to UTC for calendar timeZone when the application has none', async () => {
+      mockDeleteByProcessedMessageId.mockResolvedValue(undefined);
+      mockCreate.mockResolvedValue(makeAction({ actionType: 'calendar.add_event' }));
+
+      await ActionService.createActionsForSummary(
+        {
+          application: { applicationId: 'app-1', userEmail: 'user@example.com', providerId: 'google-gmail' },
+          processedMessage: { processedMessageId: 'pm-1', providerMessageId: 'msg-1', providerThreadId: 'thread-1' } as never,
+          subject: 'Team sync',
+          from: 'organizer@example.com',
+          body: '',
+          callbackBaseUrl: 'https://example.com',
+          proposals: [{
+            type: 'calendar.add_event',
+            title: 'Team Sync',
+            description: 'Weekly standup',
+            parameters: { startTime: '2026-07-01T10:00:00Z', endTime: '2026-07-01T11:00:00Z' },
+          }],
+        },
+        makeEnv() as never,
+      );
+
+      expect(mockCreate.mock.calls[0][0].payload).toMatchObject({ timeZone: 'UTC' });
+    });
+
     it('falls back to manual.todo for calendar.add_event with invalid dates', async () => {
       mockDeleteByProcessedMessageId.mockResolvedValue(undefined);
       mockCreate.mockResolvedValue(makeAction({ actionType: 'manual.todo' }));

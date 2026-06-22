@@ -36,6 +36,7 @@ interface UpdateApplicationRequest extends IRequest {
   clientSecret?: string | undefined;
   gmailPubsubTopicName?: string | undefined;
   enabledFeatures?: string[] | undefined;
+  timeZone?: string | undefined;
   senderDomainFilters?: SenderDomainFilters | null | undefined;
 }
 

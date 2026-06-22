@@ -15,6 +15,7 @@ export async function saveApplication(form: ApplicationFormState): Promise<{ app
     ...(form.clientId ? { clientId: form.clientId } : {}),
     ...(form.clientSecret ? { clientSecret: form.clientSecret } : {}),
     enabledFeatures: form.enabledFeatures,
+    timeZone: form.timeZone,
     ...(form.providerId === 'google-gmail' ? { gmailPubsubTopicName: form.gmailPubsubTopicName } : {}),
   };
   return readJson<{ application: ConnectedApplication }>(

@@ -191,6 +191,7 @@ describe('EmailProcessingUtil', () => {
         'sender@example.com',
         'Please review the project update.',
         undefined,
+        undefined,
       );
       expect(incrementUsage).toHaveBeenCalledWith({
         usageDate: expect.any(String),
@@ -227,6 +228,7 @@ describe('EmailProcessingUtil', () => {
         'Project update',
         'sender@example.com',
         'Please review the project update.',
+        undefined,
         undefined,
       );
       expect(incrementUsage).toHaveBeenCalledWith({
@@ -267,6 +269,7 @@ describe('EmailProcessingUtil', () => {
         'sender@example.com',
         'Please review the project update.',
         undefined,
+        undefined,
       );
       expect(summarizeEmail).toHaveBeenNthCalledWith(
         2,
@@ -275,6 +278,7 @@ describe('EmailProcessingUtil', () => {
         'Project update',
         'sender@example.com',
         'Please review the project update.',
+        undefined,
         undefined,
       );
       expect(incrementUsage).toHaveBeenNthCalledWith(1, {

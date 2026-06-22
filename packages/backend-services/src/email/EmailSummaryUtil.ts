@@ -1,5 +1,6 @@
 import { AiSummaryRetryableError } from '@mail-otter/backend-errors';
 import { EmailContentUtil } from '@mail-otter/provider-clients/email-content';
+import { TimeZoneUtil } from '@mail-otter/shared/utils';
 import type { EmailActionProposal } from '@mail-otter/shared/model';
 
 const SUMMARY_JSON_SCHEMA = {
@@ -62,8 +63,9 @@ class EmailSummaryUtil {
     from: string,
     body: string,
     ragContext?: string | undefined,
+    timeZone?: string | undefined,
   ): Promise<string> {
-    const result: EmailSummaryResult = await EmailSummaryUtil.summarizeEmailWithUsage(ai, model, subject, from, body, ragContext);
+    const result: EmailSummaryResult = await EmailSummaryUtil.summarizeEmailWithUsage(ai, model, subject, from, body, ragContext, timeZone);
     return result.summary;
   }
 
@@ -74,8 +76,9 @@ class EmailSummaryUtil {
     from: string,
     body: string,
     ragContext?: string | undefined,
+    timeZone?: string | undefined,
   ): Promise<EmailSummaryResult> {
-    const instructions: string = EmailSummaryUtil.buildSummaryInstructions();
+    const instructions: string = EmailSummaryUtil.buildSummaryInstructions(timeZone);
     const input: string = EmailSummaryUtil.buildSummaryInput(subject, from, body, ragContext);
 
     const request: AiTextGenerationRequest = {
@@ -118,20 +121,21 @@ class EmailSummaryUtil {
     return { summary: EmailSummaryUtil.renderHtmlSummary(summary), emailSummary: summary, actionProposals: summary.actions, usage };
   }
 
-  public static buildEmailSummaryPromptText(subject: string, from: string, body: string, ragContext?: string | undefined): string {
-    return [EmailSummaryUtil.buildSummaryInstructions(), EmailSummaryUtil.buildSummaryInput(subject, from, body, ragContext)].join('\n\n');
+  public static buildEmailSummaryPromptText(subject: string, from: string, body: string, ragContext?: string | undefined, timeZone?: string | undefined): string {
+    return [EmailSummaryUtil.buildSummaryInstructions(timeZone), EmailSummaryUtil.buildSummaryInput(subject, from, body, ragContext)].join('\n\n');
   }
 
-  private static buildSummaryInstructions(): string {
-    const currentDate: string = new Date().toISOString().slice(0, 10);
+  private static buildSummaryInstructions(timeZone?: string | undefined): string {
+    const zone: string = TimeZoneUtil.normalize(timeZone);
+    const currentDate: string = TimeZoneUtil.todayInZone(zone);
     return [
       'You are a helpful assistant that summarizes emails for a mailbox owner.',
-      `Today is ${currentDate}.`,
+      `Today is ${currentDate} in the mailbox owner's time zone ${zone}.`,
       'Return only JSON with this exact shape: {"gist":"one sentence","keyDetails":["short fact"],"actions":[{"type":"calendar.add_event|email.draft_reply|external.open_link|manual.todo","title":"short title","description":"what will happen","confidence":0.8,"parameters":{}}]}.',
       'Keep the gist to one sentence.',
       'Details must be short factual bullets copied from the email when possible.',
       'Actions are optional executable proposals; return an empty actions array when no safe action exists.',
-      "Use calendar.add_event when a calendar event is mentioned; resolve relative dates (e.g. 'tomorrow', 'next Friday') to absolute ISO 8601 datetimes using today's date; parameters must include eventTitle, startTime (ISO 8601), endTime (ISO 8601), timeZone, and optional location or notes.",
+      `Use calendar.add_event when a calendar event is mentioned; resolve relative dates (e.g. 'tomorrow', 'next Friday') to absolute ISO 8601 datetimes using today's date in ${zone}; parameters must include eventTitle, startTime (ISO 8601), endTime (ISO 8601), timeZone (use ${zone} unless the email explicitly states another time zone), and optional location or notes.`,
       'Use email.draft_reply when the owner should respond; parameters must include draftBody and optional draftSubject.',
       'Use external.open_link only for URLs present in the email; parameters must include url.',
       'Use manual.todo for useful actions that cannot be automated safely; parameters must include instructions.',

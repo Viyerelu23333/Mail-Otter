@@ -24,6 +24,7 @@ interface ConnectedApplicationMetadata {
   contextIndexingEnabled: boolean;
   maxContextDocuments?: number | null | undefined;
   enabledFeatures?: string[] | null | undefined;
+  timeZone?: string | null | undefined;
   senderDomainFilters?: SenderDomainFilters | null | undefined;
   gmailPubsubTopicName?: string | null | undefined;
   watchedFolders?: Array<{ id: string; name: string }> | null | undefined;

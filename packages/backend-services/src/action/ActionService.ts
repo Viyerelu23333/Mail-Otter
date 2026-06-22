@@ -260,7 +260,7 @@ class ActionService {
       const eventTitle: string = ActionService.cleanText(ActionService.getString(parameters, 'eventTitle', 'title', 'summary') || title);
       const startTime: string = ActionService.getString(parameters, 'startTime', 'startDateTime', 'startsAt') || '';
       const endTime: string = ActionService.getString(parameters, 'endTime', 'endDateTime', 'endsAt') || '';
-      const timeZone: string = ActionService.getString(parameters, 'timeZone', 'timezone') || 'UTC';
+      const timeZone: string = ActionService.getString(parameters, 'timeZone', 'timezone') || input.application.timeZone || 'UTC';
       if (ActionService.isValidIsoDateTime(startTime) && ActionService.isValidIsoDateTime(endTime)) {
         return {
           actionType: EMAIL_ACTION_TYPE_CALENDAR_ADD_EVENT,
@@ -543,7 +543,7 @@ interface CreatedEmailAction {
 }
 
 interface CreateActionsForSummaryInput {
-  application: Pick<ConnectedApplication, 'applicationId' | 'userEmail' | 'providerId'>;
+  application: Pick<ConnectedApplication, 'applicationId' | 'userEmail' | 'providerId' | 'timeZone'>;
   processedMessage: ProcessedMessage;
   subject: string;
   from: string;

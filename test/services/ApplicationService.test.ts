@@ -204,8 +204,8 @@ describe('ApplicationService', () => {
       );
 
       expect(mockUpdateForUser).toHaveBeenCalledOnce();
-      const lastArg = mockUpdateForUser.mock.calls[0]?.at(-1);
-      expect(lastArg).toEqual(filters);
+      const senderFiltersArg = mockUpdateForUser.mock.calls[0]?.[7];
+      expect(senderFiltersArg).toEqual(filters);
     });
 
     it('passes null senderDomainFilters to updateForUser when explicitly cleared', async () => {
@@ -224,8 +224,8 @@ describe('ApplicationService', () => {
         new Request('https://example.com'),
       );
 
-      const lastArg = mockUpdateForUser.mock.calls[0]?.at(-1);
-      expect(lastArg).toBeNull();
+      const senderFiltersArg = mockUpdateForUser.mock.calls[0]?.[7];
+      expect(senderFiltersArg).toBeNull();
     });
 
     it('passes undefined senderDomainFilters when field is omitted from input', async () => {
@@ -244,8 +244,8 @@ describe('ApplicationService', () => {
         new Request('https://example.com'),
       );
 
-      const lastArg = mockUpdateForUser.mock.calls[0]?.at(-1);
-      expect(lastArg).toBeUndefined();
+      const senderFiltersArg = mockUpdateForUser.mock.calls[0]?.[7];
+      expect(senderFiltersArg).toBeUndefined();
     });
 
     it('preserves connected status when credentials are unchanged', async () => {
