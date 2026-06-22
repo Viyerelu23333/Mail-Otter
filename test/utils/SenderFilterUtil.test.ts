@@ -51,44 +51,14 @@ describe('SenderFilterUtil', () => {
   });
 
   describe('shouldSkip', () => {
-    it('returns skip: false when no rules are set', () => {
-      const result = SenderFilterUtil.shouldSkip('user@example.com', { includeRules: [], excludeRules: [] });
+    it('returns skip: false when no include rules are set', () => {
+      const result = SenderFilterUtil.shouldSkip('user@example.com', { includeRules: [] });
       expect(result).toEqual({ skip: false });
     });
 
-    it('returns skip: false when empty arrays match nothing', () => {
-      const result = SenderFilterUtil.shouldSkip('user@example.com', { includeRules: [], excludeRules: [] });
-      expect(result.skip).toBe(false);
-    });
-
-    it('skips sender matching an exclude rule (domain)', () => {
-      const result = SenderFilterUtil.shouldSkip('newsletter@promotions.com', {
-        includeRules: [],
-        excludeRules: ['@promotions.com'],
-      });
-      expect(result).toEqual({ skip: true, reason: 'Sender matches application exclude filter rules.' });
-    });
-
-    it('skips sender matching an exclude rule (exact address)', () => {
-      const result = SenderFilterUtil.shouldSkip('noreply@foo.com', {
-        includeRules: [],
-        excludeRules: ['noreply@foo.com'],
-      });
-      expect(result).toEqual({ skip: true, reason: 'Sender matches application exclude filter rules.' });
-    });
-
-    it('does not skip sender that does not match any exclude rule', () => {
-      const result = SenderFilterUtil.shouldSkip('alice@company.com', {
-        includeRules: [],
-        excludeRules: ['@promotions.com'],
-      });
-      expect(result).toEqual({ skip: false });
-    });
-
-    it('does not skip sender matching an include rule', () => {
+    it('does not skip sender matching an include rule (domain)', () => {
       const result = SenderFilterUtil.shouldSkip('alice@company.com', {
         includeRules: ['@company.com'],
-        excludeRules: [],
       });
       expect(result).toEqual({ skip: false });
     });
@@ -96,39 +66,34 @@ describe('SenderFilterUtil', () => {
     it('skips sender not matching any include rule', () => {
       const result = SenderFilterUtil.shouldSkip('alice@other.com', {
         includeRules: ['@company.com'],
-        excludeRules: [],
       });
       expect(result).toEqual({ skip: true, reason: 'Sender does not match application include filter rules.' });
     });
 
-    it('exclude takes precedence over include when sender is in both', () => {
-      const result = SenderFilterUtil.shouldSkip('admin@company.com', {
-        includeRules: ['@company.com'],
-        excludeRules: ['admin@company.com'],
-      });
-      expect(result).toEqual({ skip: true, reason: 'Sender matches application exclude filter rules.' });
-    });
-
-    it('does not skip sender in include rules but not in exclude rules', () => {
+    it('does not skip sender matching an include rule (exact address)', () => {
       const result = SenderFilterUtil.shouldSkip('alice@company.com', {
-        includeRules: ['@company.com'],
-        excludeRules: ['@other.com'],
+        includeRules: ['alice@company.com'],
       });
       expect(result).toEqual({ skip: false });
+    });
+
+    it('skips sender not matching any include rule (exact address)', () => {
+      const result = SenderFilterUtil.shouldSkip('bob@company.com', {
+        includeRules: ['alice@company.com'],
+      });
+      expect(result).toEqual({ skip: true, reason: 'Sender does not match application include filter rules.' });
     });
 
     it('extracts email from angle-bracket From header when matching', () => {
       const result = SenderFilterUtil.shouldSkip('Alice Smith <alice@company.com>', {
         includeRules: ['@company.com'],
-        excludeRules: [],
       });
       expect(result).toEqual({ skip: false });
     });
 
-    it('skips bare address not matching include rule extracted from angle-bracket header', () => {
+    it('skips sender extracted from angle-bracket header not matching include rule', () => {
       const result = SenderFilterUtil.shouldSkip('Bob Jones <bob@other.com>', {
         includeRules: ['@company.com'],
-        excludeRules: [],
       });
       expect(result).toEqual({ skip: true, reason: 'Sender does not match application include filter rules.' });
     });

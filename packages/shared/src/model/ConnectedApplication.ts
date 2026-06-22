@@ -3,7 +3,6 @@ import type { EmailProcessingRule } from './EmailRule';
 
 interface SenderDomainFilters {
   includeRules: string[];
-  excludeRules: string[];
 }
 
 interface OAuth2Credentials {

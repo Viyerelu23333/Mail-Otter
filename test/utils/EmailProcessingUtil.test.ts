@@ -339,26 +339,6 @@ describe('EmailProcessingUtil', () => {
 
   describe('sender filter rules', () => {
     describe('Outlook path', () => {
-      it('skips Outlook message when sender matches an exclude rule', async () => {
-        vi.spyOn(ProcessedMessageDAO.prototype, 'tryStart').mockResolvedValue(true);
-        const markSkipped = vi.spyOn(ProcessedMessageDAO.prototype, 'markSkipped').mockResolvedValue();
-        const summarizeEmail = vi.spyOn(EmailSummaryUtil, 'summarizeEmailWithUsage');
-        vi.spyOn(OutlookProviderUtil, 'getMessage').mockResolvedValue(
-          createOutlookMessage({ from: { emailAddress: { address: 'newsletter@promotions.com' } } }),
-        );
-
-        await EmailProcessingUtil.processOutlookMessage(
-          createApplication({ senderDomainFilters: { includeRules: [], excludeRules: ['@promotions.com'] } }),
-          'access-token',
-          'message-1',
-          createEnv(),
-          [],
-        );
-
-        expect(markSkipped).toHaveBeenCalledWith('app-1', 'message-1', 'Sender matches application exclude filter rules.');
-        expect(summarizeEmail).not.toHaveBeenCalled();
-      });
-
       it('skips Outlook message when sender does not match any include rule', async () => {
         vi.spyOn(ProcessedMessageDAO.prototype, 'tryStart').mockResolvedValue(true);
         const markSkipped = vi.spyOn(ProcessedMessageDAO.prototype, 'markSkipped').mockResolvedValue();
@@ -368,7 +348,7 @@ describe('EmailProcessingUtil', () => {
         );
 
         await EmailProcessingUtil.processOutlookMessage(
-          createApplication({ senderDomainFilters: { includeRules: ['@company.com'], excludeRules: [] } }),
+          createApplication({ senderDomainFilters: { includeRules: ['@company.com'] } }),
           'access-token',
           'message-1',
           createEnv(),
@@ -391,7 +371,7 @@ describe('EmailProcessingUtil', () => {
         vi.spyOn(EmailSummaryUtil, 'summarizeEmailWithUsage').mockResolvedValue({ summary: 'Summary text' });
 
         await EmailProcessingUtil.processOutlookMessage(
-          createApplication({ senderDomainFilters: { includeRules: ['@company.com'], excludeRules: [] } }),
+          createApplication({ senderDomainFilters: { includeRules: ['@company.com'] } }),
           'access-token',
           'message-1',
           createEnv(),
@@ -423,26 +403,6 @@ describe('EmailProcessingUtil', () => {
     });
 
     describe('Gmail path', () => {
-      it('skips Gmail message when sender matches an exclude rule', async () => {
-        vi.spyOn(ProcessedMessageDAO.prototype, 'tryStart').mockResolvedValue(true);
-        const markSkipped = vi.spyOn(ProcessedMessageDAO.prototype, 'markSkipped').mockResolvedValue();
-        const summarizeEmail = vi.spyOn(EmailSummaryUtil, 'summarizeEmailWithUsage');
-        vi.spyOn(GmailProviderUtil, 'getMessage').mockResolvedValue(
-          createGmailMessage({ fromHeader: 'Newsletter <newsletter@promotions.com>' }),
-        );
-
-        await EmailProcessingUtil.processGmailMessage(
-          createApplication({ senderDomainFilters: { includeRules: [], excludeRules: ['@promotions.com'] } }),
-          'access-token',
-          'message-1',
-          createEnv(),
-          [],
-        );
-
-        expect(markSkipped).toHaveBeenCalledWith('app-1', 'message-1', 'Sender matches application exclude filter rules.');
-        expect(summarizeEmail).not.toHaveBeenCalled();
-      });
-
       it('skips Gmail message when sender does not match any include rule', async () => {
         vi.spyOn(ProcessedMessageDAO.prototype, 'tryStart').mockResolvedValue(true);
         const markSkipped = vi.spyOn(ProcessedMessageDAO.prototype, 'markSkipped').mockResolvedValue();
@@ -452,7 +412,7 @@ describe('EmailProcessingUtil', () => {
         );
 
         await EmailProcessingUtil.processGmailMessage(
-          createApplication({ senderDomainFilters: { includeRules: ['@company.com'], excludeRules: [] } }),
+          createApplication({ senderDomainFilters: { includeRules: ['@company.com'] } }),
           'access-token',
           'message-1',
           createEnv(),

@@ -5,34 +5,35 @@ import { Card, CardHeader, CardTitle } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { useMailboxCallbacks } from '../../contexts/MailboxCallbacksContext';
 
-function RuleList({
-  label,
-  rules,
-  busy,
-  onAdd,
-  onRemove,
-}: {
-  label: string;
-  rules: string[];
-  busy: boolean;
-  onAdd: (rule: string) => void;
-  onRemove: (rule: string) => void;
-}) {
+export function SenderFilterSection({ application }: { application: ConnectedApplication }) {
+  const { busy, onUpdateSenderFilters } = useMailboxCallbacks();
   const [draft, setDraft] = useState('');
+  const current: SenderDomainFilters = application.senderDomainFilters ?? { includeRules: [] };
 
   const handleAdd = () => {
     const trimmed = draft.trim().toLowerCase();
-    if (!trimmed || rules.includes(trimmed)) return;
-    onAdd(trimmed);
+    if (!trimmed || current.includeRules.includes(trimmed)) return;
+    onUpdateSenderFilters(application.applicationId, { includeRules: [...current.includeRules, trimmed] });
     setDraft('');
   };
 
+  const handleRemove = (rule: string) => {
+    onUpdateSenderFilters(application.applicationId, { includeRules: current.includeRules.filter((r) => r !== rule) });
+  };
+
   return (
-    <div className="flex flex-col gap-2">
-      <p className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">{label}</p>
-      {rules.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {rules.map((rule) => (
+    <Card>
+      <CardHeader>
+        <CardTitle>Sender Allowlist</CardTitle>
+      </CardHeader>
+      <p className="text-xs text-[var(--color-text-muted)] mb-4">
+        When set, only emails from matching senders are processed. Leave empty to process all senders.
+        Use <code className="font-mono">@domain.com</code> to match a domain or <code className="font-mono">user@domain.com</code> for an exact address.
+        To block specific senders, create a rule with Field: From, Operator: Matches Sender, Action: Skip.
+      </p>
+      {current.includeRules.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {current.includeRules.map((rule) => (
             <span
               key={rule}
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-[var(--color-surface-raised)] border border-[var(--color-border)] text-[var(--color-text-primary)]"
@@ -40,7 +41,7 @@ function RuleList({
               {rule}
               <button
                 type="button"
-                onClick={() => onRemove(rule)}
+                onClick={() => handleRemove(rule)}
                 disabled={busy}
                 className="ml-0.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] disabled:opacity-40"
                 aria-label={`Remove ${rule}`}
@@ -64,33 +65,6 @@ function RuleList({
         <Button variant="secondary" size="sm" onClick={handleAdd} disabled={busy || !draft.trim()}>
           Add
         </Button>
-      </div>
-    </div>
-  );
-}
-
-export function SenderFilterSection({ application }: { application: ConnectedApplication }) {
-  const { busy, onUpdateSenderFilters } = useMailboxCallbacks();
-  const current: SenderDomainFilters = application.senderDomainFilters ?? { includeRules: [], excludeRules: [] };
-
-  const addInclude = (rule: string) => onUpdateSenderFilters(application.applicationId, { ...current, includeRules: [...current.includeRules, rule] });
-  const removeInclude = (rule: string) => onUpdateSenderFilters(application.applicationId, { ...current, includeRules: current.includeRules.filter((r) => r !== rule) });
-  const addExclude = (rule: string) => onUpdateSenderFilters(application.applicationId, { ...current, excludeRules: [...current.excludeRules, rule] });
-  const removeExclude = (rule: string) => onUpdateSenderFilters(application.applicationId, { ...current, excludeRules: current.excludeRules.filter((r) => r !== rule) });
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Sender Filters</CardTitle>
-      </CardHeader>
-      <p className="text-xs text-[var(--color-text-muted)] mb-4">
-        Include Rules: Only Process Emails From Matching Senders. Exclude Rules: Skip Emails From Matching Senders.
-        Use <code className="font-mono">@domain.com</code> To Match A Domain Or <code className="font-mono">user@domain.com</code> For An Exact Address.
-        Exclude Rules Are Checked First.
-      </p>
-      <div className="flex flex-col gap-4">
-        <RuleList label="Include Rules" rules={current.includeRules} busy={busy} onAdd={addInclude} onRemove={removeInclude} />
-        <RuleList label="Exclude Rules" rules={current.excludeRules} busy={busy} onAdd={addExclude} onRemove={removeExclude} />
       </div>
     </Card>
   );

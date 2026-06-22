@@ -42,7 +42,6 @@ export interface OutboundIntegration {
 
 export interface SenderDomainFilters {
   includeRules: string[];
-  excludeRules: string[];
 }
 
 export interface CurrentUser {
