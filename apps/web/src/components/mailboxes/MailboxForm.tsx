@@ -23,13 +23,19 @@ function getBrowserTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
 
+function getDefaultFeatures(providerId: ProviderId): string[] {
+  return (Object.entries(OAUTH2_FEATURES) as [string, OAuth2Feature][])
+    .filter(([featureId]) => (OAUTH2_FEATURE_SCOPES[featureId]?.[providerId] ?? []).length > 0)
+    .map(([featureId]) => featureId);
+}
+
 export const emptyForm: ApplicationFormState = {
   displayName: '',
   providerId: 'google-gmail',
   clientId: '',
   clientSecret: '',
   gmailPubsubTopicName: '',
-  enabledFeatures: [],
+  enabledFeatures: getDefaultFeatures('google-gmail'),
   timeZone: getBrowserTimeZone(),
 };
 
@@ -115,7 +121,10 @@ export function MailboxForm({
           />
           <Select
             value={form.providerId}
-            onChange={(e) => update({ providerId: e.target.value as ProviderId, enabledFeatures: [] })}
+            onChange={(e) => {
+              const p = e.target.value as ProviderId;
+              update({ providerId: p, enabledFeatures: getDefaultFeatures(p) });
+            }}
             disabled={Boolean(form.applicationId)}
             className="w-full"
           >
