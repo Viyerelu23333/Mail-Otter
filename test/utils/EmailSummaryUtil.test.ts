@@ -13,9 +13,7 @@ describe('EmailSummaryUtil', () => {
     } as unknown as Ai;
 
     await expect(EmailSummaryUtil.summarizeEmail(ai, '@cf/meta/llama-3.1-8b-instruct', 'Campaign budget', 'sam@example.com', 'body'))
-      .resolves.toBe(`<p><strong>Gist:</strong> The sender wants approval for the May campaign budget.</p>
-
-<p><strong>Details:</strong></p>
+      .resolves.toBe(`<p><strong>Details:</strong></p>
 <ul>
 <li>Budget requested is $12,000.</li>
 <li>Launch is planned for May 20.</li>
@@ -41,9 +39,7 @@ describe('EmailSummaryUtil', () => {
     } as unknown as Ai;
 
     await expect(EmailSummaryUtil.summarizeEmail(ai, 'model', 'Status', 'sam@example.com', 'body')).resolves
-      .toBe(`<p><strong>Gist:</strong> The email shares a status update with no requests.</p>
-
-<p><strong>Details:</strong></p>
+      .toBe(`<p><strong>Details:</strong></p>
 <ul>
 <li>No key details noted.</li>
 </ul>`);
@@ -87,9 +83,7 @@ describe('EmailSummaryUtil', () => {
     } as unknown as Ai;
 
     await expect(EmailSummaryUtil.summarizeEmail(ai, '@cf/openai/gpt-oss-120b', 'Campaign budget', 'sam@example.com', 'body')).resolves
-      .toBe(`<p><strong>Gist:</strong> The sender needs approval for the budget.</p>
-
-<p><strong>Details:</strong></p>
+      .toBe(`<p><strong>Details:</strong></p>
 <ul>
 <li>Budget is $12,000.</li>
 </ul>`);
@@ -129,9 +123,7 @@ describe('EmailSummaryUtil', () => {
     } as unknown as Ai;
 
     await expect(EmailSummaryUtil.summarizeEmail(ai, '@cf/openai/gpt-oss-120b', 'Launch', 'sam@example.com', 'body')).resolves
-      .toBe(`<p><strong>Gist:</strong> The email shares a launch update.</p>
-
-<p><strong>Details:</strong></p>
+      .toBe(`<p><strong>Details:</strong></p>
 <ul>
 <li>Launch starts Monday.</li>
 </ul>`);
@@ -154,7 +146,7 @@ describe('EmailSummaryUtil', () => {
 
     await expect(EmailSummaryUtil.summarizeEmailWithUsage(ai, '@cf/openai/gpt-oss-120b', 'Review', 'sam@example.com', 'body')).resolves
       .toMatchObject({
-        summary: expect.stringContaining('<strong>Gist:</strong> The email asks for feedback.'),
+        summary: expect.stringContaining('<strong>Details:</strong>'),
         usage: {
           promptTokens: 1000,
           completionTokens: 100,
@@ -183,7 +175,7 @@ describe('EmailSummaryUtil', () => {
 
     await expect(EmailSummaryUtil.summarizeEmailWithUsage(ai, '@cf/openai/gpt-oss-120b', 'Review', 'sam@example.com', 'body')).resolves
       .toMatchObject({
-        summary: expect.stringContaining('<strong>Gist:</strong> The email asks for feedback.'),
+        summary: expect.stringContaining('<strong>Details:</strong>'),
         usage: {
           promptTokens: 1000,
           completionTokens: 800,
@@ -239,7 +231,7 @@ describe('EmailSummaryUtil', () => {
 
     await expect(EmailSummaryUtil.summarizeEmailWithUsage(ai, '@cf/openai/gpt-oss-120b', 'Review', 'sam@example.com', 'body')).resolves
       .toMatchObject({
-        summary: expect.stringContaining('<strong>Gist:</strong> The email asks for feedback.'),
+        summary: expect.stringContaining('<strong>Details:</strong>'),
         usage: {
           promptTokens: 1000,
           completionTokens: 800,
