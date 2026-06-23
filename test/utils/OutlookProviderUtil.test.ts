@@ -40,6 +40,7 @@ describe('OutlookProviderUtil', () => {
         originalMessage,
         'sender@example.com',
         htmlSummary,
+        'Test gist.',
       );
 
       expect(fetchMock).toHaveBeenCalledTimes(6);
@@ -69,7 +70,7 @@ describe('OutlookProviderUtil', () => {
 
       expect(replyHeaders['Content-Type']).toBe('application/json');
       expect(replyHeaders['Authorization']).toBe('Bearer test-access-token');
-      expect(parsedBody.message.subject).toBe(`[${EXPECTED_MARKER}] Re: `);
+      expect(parsedBody.message.subject).toBe(`[${EXPECTED_MARKER}] Test gist.`);
       expect(parsedBody.message.body).toEqual({
         contentType: 'html',
         content: htmlSummary,
