@@ -28,8 +28,9 @@ class EmailContextUtil {
     const vectorNamespace: string = await EmailContextUtil.getUserVectorNamespace(input.application.userEmail);
     const indexedText: string = EmailContextUtil.buildIndexedText(input);
     let document: ApplicationContextDocument | undefined;
+    let auditMetadata: EmailDocumentAuditMetadata | undefined;
     if (shouldStore) {
-      const auditMetadata: EmailDocumentAuditMetadata = await EmailContextUtil.buildAuditMetadata(input, indexedText);
+      auditMetadata = await EmailContextUtil.buildAuditMetadata(input, indexedText);
       document = await contextDAO.upsertEmailDocument({
         applicationId: input.application.applicationId,
         userEmail: input.application.userEmail,
@@ -39,29 +40,12 @@ class EmailContextUtil {
         vectorNamespace,
         ...auditMetadata,
       });
-      await contextDAO.insertAuditLog({
-        contextDocumentId: document.contextDocumentId,
-        applicationId: input.application.applicationId,
-        userEmail: input.application.userEmail,
-        sourceDocumentId: input.sourceDocumentId,
-        eventType: CONTEXT_AUDIT_EVENT_CONTEXT_INDEXED,
-        eventLabel: 'Email Document Indexed Into Context',
-        eventData: {
-          indexedTextChars: auditMetadata.indexedTextChars,
-          sourceProviderId: input.application.providerId,
-          vectorId: document.vectorId,
-        },
-        severity: CONTEXT_AUDIT_LOG_SEVERITY_INFO,
-      });
     }
 
     try {
       const embeddingModel: string = ConfigurationManager.getAiEmbeddingModel(input.env);
       const embedding: number[] = await EmailContextUtil.embed(input.env.AI, embeddingModel, indexedText);
       await EmailContextUtil.recordEmbeddingUsage(input.env, embeddingModel, indexedText);
-      const ragContext: string | undefined = shouldRetrieve
-        ? await EmailContextUtil.queryRelevantContext(input.env, embedding, vectorNamespace, enabledApplicationIds, document?.vectorId)
-        : undefined;
       if (shouldStore && document) {
         await contextDAO.insertAuditLog({
           contextDocumentId: document.contextDocumentId,
@@ -73,6 +57,23 @@ class EmailContextUtil {
           eventData: { embeddingModel },
           severity: CONTEXT_AUDIT_LOG_SEVERITY_INFO,
         });
+      }
+      const ragContext: string | undefined = shouldRetrieve
+        ? await EmailContextUtil.queryRelevantContext(input.env, embedding, vectorNamespace, enabledApplicationIds, document?.vectorId)
+        : undefined;
+      if (document && ragContext) {
+        await contextDAO.insertAuditLog({
+          contextDocumentId: document.contextDocumentId,
+          applicationId: input.application.applicationId,
+          userEmail: input.application.userEmail,
+          sourceDocumentId: input.sourceDocumentId,
+          eventType: CONTEXT_AUDIT_EVENT_RAG_QUERIED,
+          eventLabel: 'Relevant Context Retrieved',
+          eventData: { ragChars: ragContext.length },
+          severity: CONTEXT_AUDIT_LOG_SEVERITY_INFO,
+        });
+      }
+      if (shouldStore && document && auditMetadata) {
         await input.env.EMAIL_CONTEXT_INDEX.upsert([
           {
             id: document.vectorId,
@@ -92,16 +93,18 @@ class EmailContextUtil {
           },
         ]);
         await contextDAO.markDocumentIndexed(document.contextDocumentId);
-      }
-      if (document && ragContext) {
         await contextDAO.insertAuditLog({
           contextDocumentId: document.contextDocumentId,
           applicationId: input.application.applicationId,
           userEmail: input.application.userEmail,
           sourceDocumentId: input.sourceDocumentId,
-          eventType: CONTEXT_AUDIT_EVENT_RAG_QUERIED,
-          eventLabel: 'Relevant Context Retrieved',
-          eventData: { ragChars: ragContext.length },
+          eventType: CONTEXT_AUDIT_EVENT_CONTEXT_INDEXED,
+          eventLabel: 'Email Document Indexed Into Context',
+          eventData: {
+            indexedTextChars: auditMetadata.indexedTextChars,
+            sourceProviderId: input.application.providerId,
+            vectorId: document.vectorId,
+          },
           severity: CONTEXT_AUDIT_LOG_SEVERITY_INFO,
         });
       }
