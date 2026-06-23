@@ -5,7 +5,7 @@ import { ConfigurationManager } from '@mail-otter/backend-runtime/config';
 import type { ConnectedApplication, EmailActionProposal } from '@mail-otter/shared/model';
 import { EmailContentUtil } from '@mail-otter/provider-clients/email-content';
 import { ActionService } from '../action';
-import type { CreatedEmailAction } from '../action';
+import type { ActionExecutionEnv, CreatedEmailAction } from '../action';
 import { EmailContextUtil } from './EmailContextUtil';
 import { EmailProcessingAuditLogger } from './EmailProcessingAuditLogger';
 import { EmailRulesUtil } from './EmailRulesUtil';
@@ -46,6 +46,11 @@ interface OrchestratorEnv {
   RAG_VECTOR_QUERY_TOP_K?: string | undefined;
   ACTION_CALLBACK_BASE_URL?: string | undefined;
   ACTION_DEFAULT_EXPIRY_HOURS?: string | undefined;
+  // Optional OAuth bindings — present when env is EmailProcessingEnv; needed for auto-executing
+  // calendar.add_event and email.draft_reply action types.
+  OAUTH2_TOKEN_CACHE?: KVNamespace | undefined;
+  OAUTH2_TOKEN_REFRESHERS?: DurableObjectNamespace | undefined;
+  OAUTH2_ACCESS_TOKEN_MIN_VALID_SECONDS?: string | undefined;
 }
 
 class EmailSummaryOrchestrator {
@@ -96,6 +101,9 @@ class EmailSummaryOrchestrator {
       : [];
     if (actions.length > 0) {
       await this.auditLogger.logActionsCreated(application, resolvedMessageId, actions, options.retryAttempt);
+    }
+    if (application.autoExecuteActionTypes?.length && actions.length) {
+      await ActionService.autoExecuteCreatedActions(application.autoExecuteActionTypes, actions, this.env as ActionExecutionEnv);
     }
     return { summaryHtml: this.withActionSection(summary.html, actions), actions, rawSummary: summary.rawSummary };
   }

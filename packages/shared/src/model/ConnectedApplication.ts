@@ -31,6 +31,7 @@ interface ConnectedApplicationMetadata {
   timeZone?: string | null | undefined;
   senderDomainFilters?: SenderDomainFilters | null | undefined;
   emailProcessingRules?: EmailProcessingRule[] | null | undefined;
+  autoExecuteActionTypes?: string[] | null | undefined;
   gmailPubsubTopicName?: string | null | undefined;
   imapHost?: string | null | undefined;
   imapPort?: number | null | undefined;

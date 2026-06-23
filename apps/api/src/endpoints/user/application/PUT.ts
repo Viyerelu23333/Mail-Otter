@@ -43,6 +43,7 @@ interface UpdateApplicationRequest extends IRequest {
   enabledFeatures?: string[] | undefined;
   timeZone?: string | undefined;
   senderDomainFilters?: SenderDomainFilters | null | undefined;
+  autoExecuteActionTypes?: string[] | null | undefined;
 }
 
 interface UpdateApplicationResponse extends IResponse {

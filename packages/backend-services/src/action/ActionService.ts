@@ -3,7 +3,7 @@ import type { EmailActionStatus } from '@mail-otter/shared/constants';
 import { createActionDAO } from './ActionServiceUtils';
 import { createActionsForSummary } from './ActionCreationService';
 import { renderActionItems, renderEmailActionSection } from './ActionRenderService';
-import { getConfirmationResponse, executeActionWithToken, executeActionForUser } from './ActionExecutionService';
+import { getConfirmationResponse, executeActionWithToken, executeActionForUser, autoExecuteCreatedActions } from './ActionExecutionService';
 import { expirePendingActions, deleteOldActions } from './ActionMaintenanceService';
 
 export type {
@@ -31,6 +31,7 @@ type UserActionListEnv = import('./ActionServiceUtils').ActionDAOEnv;
 
 class ActionService {
   public static createActionsForSummary = createActionsForSummary;
+  public static autoExecuteCreatedActions = autoExecuteCreatedActions;
   public static renderActionItems = renderActionItems;
   public static renderEmailActionSection = renderEmailActionSection;
   public static getConfirmationResponse = getConfirmationResponse;

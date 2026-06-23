@@ -11,6 +11,7 @@ export interface MailboxCallbacksContextValue {
   onLoadFolders: (id: string) => void;
   onUpdateWatchedFolders: (id: string, folderIds: string[] | null) => void;
   onUpdateSenderFilters: (id: string, filters: SenderDomainFilters) => void;
+  onUpdateAutoExecuteActionTypes: (id: string, types: string[]) => void;
   onUpdateContextIndexing: (id: string, enabled: boolean) => void;
   onUpdateMaxContextDocuments: (id: string, max: number | null) => void;
   onOpenContextAudit: (id: string) => void;

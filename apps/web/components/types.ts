@@ -85,6 +85,7 @@ export interface ConnectedApplication {
   timeZone?: string | null;
   senderDomainFilters?: SenderDomainFilters | null;
   emailProcessingRules?: EmailProcessingRule[] | null;
+  autoExecuteActionTypes?: string[] | null;
   gmailPubsubTopicName?: string | null;
   imapHost?: string | null;
   imapPort?: number | null;
@@ -122,7 +123,7 @@ export type EmailActionType =
   | 'travel.track_flight'
   | 'finance.pay_bill'
   | 'appointment.confirm';
-export type EmailActionExecutionTrigger = 'email_callback' | 'web_ui' | 'system_expiry';
+export type EmailActionExecutionTrigger = 'email_callback' | 'web_ui' | 'system_expiry' | 'auto_execute';
 
 export interface ApplicationContextDocument {
   contextDocumentId: string;

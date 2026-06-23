@@ -2,6 +2,7 @@ import {
   EMAIL_ACTION_STATUS_EXPIRED,
   EMAIL_ACTION_STATUS_FAILED,
   EMAIL_ACTION_STATUS_SUCCEEDED,
+  EMAIL_ACTION_TRIGGER_AUTO_EXECUTE,
   EMAIL_ACTION_TRIGGER_EMAIL_CALLBACK,
   EMAIL_ACTION_TRIGGER_WEB_UI,
   EMAIL_ACTION_TYPE_APPOINTMENT_CONFIRM,
@@ -28,6 +29,7 @@ import type {
   FinancePayBillActionPayload,
   TravelTrackFlightActionPayload,
 } from '@mail-otter/shared/model';
+import type { CreatedEmailAction } from './ActionCreationService';
 import { EmailProviderRegistry } from '../provider/EmailProviderRegistry';
 import { OAuth2AccessTokenService } from '../oauth2/OAuth2AccessTokenService';
 import { createActionDAO, hashToken } from './ActionServiceUtils';
@@ -54,7 +56,8 @@ async function getActionForToken(actionId: string, token: string, env: ActionCal
   return (await createActionDAO(env)).getByTokenHash(actionId, tokenHash);
 }
 
-async function hashUserAgent(request: Request, env: ActionExecutionEnv): Promise<string | null> {
+async function hashUserAgent(request: Request | null, env: ActionExecutionEnv): Promise<string | null> {
+  if (!request) return null;
   const userAgent: string = request.headers.get('User-Agent')?.trim() || '';
   if (!userAgent) return null;
   return CryptoUtil.hmacSha256Hex(`email-action-user-agent\n${userAgent}`, await env.ACTION_SIGNING_SECRET.get());
@@ -121,8 +124,8 @@ async function executeProviderOperation(action: EmailAction, env: ActionExecutio
 
 async function executeAction(
   action: EmailAction,
-  triggeredBy: typeof EMAIL_ACTION_TRIGGER_EMAIL_CALLBACK | typeof EMAIL_ACTION_TRIGGER_WEB_UI,
-  request: Request,
+  triggeredBy: typeof EMAIL_ACTION_TRIGGER_EMAIL_CALLBACK | typeof EMAIL_ACTION_TRIGGER_WEB_UI | typeof EMAIL_ACTION_TRIGGER_AUTO_EXECUTE,
+  request: Request | null,
   env: ActionExecutionEnv,
 ): Promise<EmailAction> {
   const actionDAO = await createActionDAO(env);
@@ -200,5 +203,24 @@ async function executeActionForUser(actionId: string, userEmail: string, request
   return executeAction(action, EMAIL_ACTION_TRIGGER_WEB_UI, request, env);
 }
 
+async function autoExecuteCreatedActions(
+  autoExecuteTypes: string[],
+  createdActions: CreatedEmailAction[],
+  env: ActionExecutionEnv,
+): Promise<void> {
+  const typeSet = new Set(autoExecuteTypes);
+  const eligible = createdActions.filter((a) => typeSet.has(a.action.actionType));
+  if (!eligible.length) return;
+  await Promise.all(
+    eligible.map(async (created) => {
+      try {
+        await executeAction(created.action, EMAIL_ACTION_TRIGGER_AUTO_EXECUTE, null, env);
+      } catch (error: unknown) {
+        console.warn(`Auto-execute failed for action ${created.action.actionId}:`, error);
+      }
+    }),
+  );
+}
+
 export type { ActionHtmlResponse, ActionCallbackEnv, ActionExecutionEnv, UserActionEnv };
-export { getConfirmationResponse, executeActionWithToken, executeActionForUser, executeAction };
+export { getConfirmationResponse, executeActionWithToken, executeActionForUser, executeAction, autoExecuteCreatedActions };

@@ -148,6 +148,7 @@ class ConnectedApplicationDAO extends EncryptedDAO {
     senderDomainFilters?: SenderDomainFilters | null,
     timeZone?: string | null,
     imapConfig?: { host?: string | null; port?: number | null; username?: string | null; smtpHost?: string | null; smtpPort?: number | null } | null,
+    autoExecuteActionTypes?: string[] | null,
   ): Promise<ConnectedApplicationMetadata | undefined> {
     const now: number = TimestampUtil.getCurrentUnixTimestampInSeconds();
     const encrypted = await encryptData(JSON.stringify(credentials), this.masterKey);
@@ -187,6 +188,11 @@ class ConnectedApplicationDAO extends EncryptedDAO {
     }
     if (imapConfig) {
       await this.saveImapConfig(applicationId, imapConfig, now);
+    }
+    if (autoExecuteActionTypes && autoExecuteActionTypes.length > 0) {
+      await this.setProviderConfig(applicationId, 'auto_execute_action_types', JSON.stringify(autoExecuteActionTypes), now);
+    } else if (autoExecuteActionTypes !== undefined) {
+      await this.deleteProviderConfig(applicationId, 'auto_execute_action_types');
     }
     return this.getMetadataByIdForUser(applicationId, userEmail);
   }
@@ -467,8 +473,9 @@ class ConnectedApplicationDAO extends EncryptedDAO {
         : row.status === CONNECTED_APPLICATION_STATUS_ERROR
           ? CONNECTED_APPLICATION_STATUS_ERROR
           : CONNECTED_APPLICATION_STATUS_DRAFT;
-    const [watchedFolders, gmailPubsubTopicName, enabledFeaturesJson, senderDomainFiltersJson, timeZone, emailProcessingRulesJson, imapHost, imapPortStr, imapUsername, smtpHost, smtpPortStr]: [
+    const [watchedFolders, gmailPubsubTopicName, enabledFeaturesJson, senderDomainFiltersJson, timeZone, emailProcessingRulesJson, imapHost, imapPortStr, imapUsername, smtpHost, smtpPortStr, autoExecuteActionTypesJson]: [
       Array<{ folderPath: string; folderName: string }>,
+      string | null,
       string | null,
       string | null,
       string | null,
@@ -491,6 +498,7 @@ class ConnectedApplicationDAO extends EncryptedDAO {
       this.getProviderConfig(row.application_id, 'imap_username'),
       this.getProviderConfig(row.application_id, 'smtp_host'),
       this.getProviderConfig(row.application_id, 'smtp_port'),
+      this.getProviderConfig(row.application_id, 'auto_execute_action_types'),
     ]);
     // Lazily migrate legacy excludeRules (stored in sender_domain_filters) into email processing rules
     let senderDomainFilters: SenderDomainFilters | null = null;
@@ -547,6 +555,7 @@ class ConnectedApplicationDAO extends EncryptedDAO {
       imapUsername: imapUsername ?? null,
       smtpHost: smtpHost ?? null,
       smtpPort: smtpPortStr != null ? Number(smtpPortStr) : null,
+      autoExecuteActionTypes: autoExecuteActionTypesJson ? (JSON.parse(autoExecuteActionTypesJson) as string[]) : null,
     };
   }
 
