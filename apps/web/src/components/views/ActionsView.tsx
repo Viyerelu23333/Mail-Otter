@@ -180,8 +180,14 @@ export function ActionsView({
                         <span className="text-sm font-medium text-[var(--color-text-primary)]">Attempt {execution.attempt}</span>
                         <ActionStatusBadge status={execution.status} />
                       </div>
-                      <div className="text-xs text-[var(--color-text-secondary)] mt-1">
-                        {execution.triggeredBy} · {formatTimestamp(execution.createdAt)}
+                      <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] mt-1">
+                        {execution.triggeredBy === 'auto_execute' ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-[var(--color-accent-subtle)] text-[var(--color-accent)]">Auto</span>
+                        ) : (
+                          <span>{execution.triggeredBy}</span>
+                        )}
+                        <span>·</span>
+                        <span>{formatTimestamp(execution.createdAt)}</span>
                       </div>
                       {execution.providerOperationId && (
                         <div className="text-xs text-[var(--color-text-muted)] mt-1">Provider ID: {execution.providerOperationId}</div>

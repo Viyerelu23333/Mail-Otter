@@ -128,6 +128,7 @@ class ApplicationService {
       input.senderDomainFilters,
       input.timeZone,
       imapConfig,
+      input.autoExecuteActionTypes,
     );
     if (!application) {
       throw new BadRequestError('Connected application was not found.');
@@ -311,6 +312,7 @@ interface CreateUserApplicationInput {
 interface UpdateUserApplicationInput extends CreateUserApplicationInput {
   applicationId: string;
   connectionMethod: string;
+  autoExecuteActionTypes?: string[] | null | undefined;
 }
 
 interface UpdateWatchedFolderIdsInput {

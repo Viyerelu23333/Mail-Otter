@@ -148,6 +148,27 @@ export async function updateSenderFilters(
   );
 }
 
+export async function updateAutoExecuteActionTypes(
+  app: ConnectedApplication,
+  types: string[],
+): Promise<{ application: ConnectedApplication }> {
+  return readJson<{ application: ConnectedApplication }>(
+    await apiFetch('/user/application', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        applicationId: app.applicationId,
+        displayName: app.displayName,
+        providerId: app.providerId,
+        connectionMethod: app.connectionMethod,
+        enabledFeatures: app.enabledFeatures,
+        ...(app.providerId === 'google-gmail' ? { gmailPubsubTopicName: app.gmailPubsubTopicName } : {}),
+        autoExecuteActionTypes: types,
+      }),
+    }),
+  );
+}
+
 export async function deleteContextDocuments(applicationId: string): Promise<{ deletionRun: import('../../components/types').ApplicationContextDeletionRun }> {
   return readJson<{ deletionRun: import('../../components/types').ApplicationContextDeletionRun }>(
     await apiFetch('/user/application/context/delete-documents', {

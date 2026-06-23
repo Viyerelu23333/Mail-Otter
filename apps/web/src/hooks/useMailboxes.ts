@@ -198,6 +198,21 @@ export function useMailboxes({ setIsBusy, showNotice, onContextChanged }: UseMai
     }
   };
 
+  const updateAutoExecuteActionTypes = async (applicationId: string, types: string[]) => {
+    const app = applications.find((a) => a.applicationId === applicationId);
+    if (!app) return;
+    setIsBusy(true);
+    try {
+      const data = await appSvc.updateAutoExecuteActionTypes(app, types);
+      setApplications((c) => c.map((a) => (a.applicationId === data.application.applicationId ? data.application : a)));
+      showNotice('success', 'Auto-Execution Settings Updated.');
+    } catch (e) {
+      showNotice('error', e instanceof Error ? e.message : 'Unable To Update Auto-Execution Settings.');
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   const deleteContextDocuments = async (applicationId: string) => {
     const app = applications.find((a) => a.applicationId === applicationId);
     if (!window.confirm(`Delete All Indexed Documents For ${app?.displayName || 'This Mailbox'}?`)) return;
@@ -374,6 +389,7 @@ export function useMailboxes({ setIsBusy, showNotice, onContextChanged }: UseMai
     loadFolders,
     updateWatchedFolderIds,
     updateSenderFilters,
+    updateAutoExecuteActionTypes,
     deleteContextDocuments,
     dismissError,
     integrationsByApplicationId,
