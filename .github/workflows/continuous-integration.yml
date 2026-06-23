@@ -149,6 +149,7 @@ jobs:
     name: Dispatch Upstream Sync Deployment
     needs:
       - checks
+      - integration-tests
       - build
     permissions:
       contents: write
