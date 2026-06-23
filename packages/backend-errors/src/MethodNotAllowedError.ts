@@ -1,6 +1,6 @@
-import { ErrorCode, IServiceError } from './IServiceError';
+import { ErrorCode, ServiceError } from './IServiceError';
 
-class MethodNotAllowedError extends IServiceError {
+class MethodNotAllowedError extends ServiceError {
   constructor(message?: string | undefined) {
     super(message ?? 'The requested method is not allowed for this resource.');
   }

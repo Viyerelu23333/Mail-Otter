@@ -30,7 +30,7 @@ class GetApplicationContextDocumentProviderLinkRoute extends IUserRoute<
 
     const userEmail: string = this.getAuthenticatedUserEmailAddress(cxt);
     return {
-      url: await ContextService.getDocumentProviderLink(userEmail, contextDocumentId, env),
+      url: await new ContextService(env).getDocumentProviderLink(userEmail, contextDocumentId),
     };
   }
 }

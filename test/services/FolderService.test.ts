@@ -23,9 +23,9 @@ vi.mock('@mail-otter/provider-clients/outlook', () => ({
 }));
 
 vi.mock('../../packages/backend-services/src/oauth2/OAuth2AccessTokenService', () => ({
-  OAuth2AccessTokenService: {
-    getAccessToken: vi.fn(() => 'access-token'),
-  },
+  OAuth2AccessTokenService: vi.fn(function () {
+    return { getAccessToken: vi.fn(() => 'access-token') };
+  }),
 }));
 
 import { FolderService } from '../../packages/backend-services/src/application/FolderService';
@@ -57,7 +57,7 @@ describe('FolderService', () => {
       { id: 'IMPORTANT', name: 'Important' },
     ]);
 
-    const result = await FolderService.listFolders('user@example.com', 'app-1', makeEnv());
+    const result = await new FolderService(makeEnv()).listFolders('user@example.com', 'app-1');
 
     expect(result).toEqual([
       { id: 'INBOX', name: 'Inbox' },
@@ -76,7 +76,7 @@ describe('FolderService', () => {
       { id: 'sent-folder', displayName: 'Sent Items' },
     ]);
 
-    const result = await FolderService.listFolders('user@example.com', 'app-1', makeEnv());
+    const result = await new FolderService(makeEnv()).listFolders('user@example.com', 'app-1');
 
     expect(result).toEqual([
       { id: 'inbox-folder', name: 'Inbox' },
@@ -88,7 +88,7 @@ describe('FolderService', () => {
     mockGetByIdForUser.mockResolvedValue(undefined);
 
     await expect(
-      FolderService.listFolders('user@example.com', 'nonexistent', makeEnv()),
+      new FolderService(makeEnv()).listFolders('user@example.com', 'nonexistent'),
     ).rejects.toThrow('Connected application was not found.');
   });
 
@@ -100,7 +100,7 @@ describe('FolderService', () => {
     });
 
     await expect(
-      FolderService.listFolders('user@example.com', 'app-1', makeEnv()),
+      new FolderService(makeEnv()).listFolders('user@example.com', 'app-1'),
     ).rejects.toThrow('Unsupported provider');
   });
 });

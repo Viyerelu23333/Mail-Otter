@@ -20,7 +20,7 @@ class GetApplicationRulesRoute extends IUserRoute<GetApplicationRulesRequest, Ge
     cxt: RouteContext<GetApplicationRulesEnv>,
   ): Promise<GetApplicationRulesResponse> {
     const applicationId = this.getQueryParam(request, 'applicationId') ?? '';
-    const rules = await ApplicationService.getRules(this.getAuthenticatedUserEmailAddress(cxt), applicationId, env);
+    const rules = await new ApplicationService(env).getRules(this.getAuthenticatedUserEmailAddress(cxt), applicationId);
     return { rules };
   }
 }

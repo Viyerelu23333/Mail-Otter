@@ -7,15 +7,23 @@ import type { ProviderFolder } from '../provider/IEmailProvider';
 import { OAuth2AccessTokenService } from '../oauth2/OAuth2AccessTokenService';
 
 class FolderService {
-  public static async listFolders(userEmail: string, applicationId: string, env: FolderServiceEnv): Promise<ProviderFolder[]> {
-    const masterKey: string = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    const applicationDAO = new ConnectedApplicationDAO(env.DB, masterKey);
+  constructor(private readonly env: FolderServiceEnv) {}
+
+  async listFolders(userEmail: string, applicationId: string): Promise<ProviderFolder[]> {
+    const masterKey: string = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    const applicationDAO = new ConnectedApplicationDAO(this.env.DB, masterKey);
     const application: ConnectedApplication | undefined = await applicationDAO.getByIdForUser(applicationId, userEmail);
     if (!application) {
       throw new BadRequestError('Connected application was not found.');
     }
-    const accessToken: string = await OAuth2AccessTokenService.getAccessToken(application.applicationId, env);
+    const accessToken: string = await new OAuth2AccessTokenService(this.env).getAccessToken(application.applicationId);
     return EmailProviderRegistry.get(application.providerId).listFolders(accessToken);
+  }
+}
+
+class FolderServiceFactory {
+  static create(env: FolderServiceEnv): FolderService {
+    return new FolderService(env);
   }
 }
 
@@ -27,5 +35,5 @@ interface FolderServiceEnv {
   OAUTH2_ACCESS_TOKEN_MIN_VALID_SECONDS?: string | undefined;
 }
 
-export { FolderService };
+export { FolderService, FolderServiceFactory };
 export type { FolderServiceEnv, ProviderFolder };

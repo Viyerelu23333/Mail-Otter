@@ -20,7 +20,7 @@ class GetApplicationFoldersRoute extends IUserRoute<GetApplicationFoldersRequest
     cxt: RouteContext<GetApplicationFoldersEnv>,
   ): Promise<GetApplicationFoldersResponse> {
     const applicationId = this.getQueryParam(request, 'applicationId') ?? '';
-    const folders = await FolderService.listFolders(this.getAuthenticatedUserEmailAddress(cxt), applicationId, env);
+    const folders = await new FolderService(env).listFolders(this.getAuthenticatedUserEmailAddress(cxt), applicationId);
     return { folders };
   }
 }

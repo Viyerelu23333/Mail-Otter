@@ -5,10 +5,10 @@ import {
 } from '@mail-otter/shared/constants';
 import { DatabaseError } from '@mail-otter/backend-errors';
 import { executeD1WithRetry } from '../utils';
-import type { D1Queryable } from '../utils';
 import type { ProviderId } from '@mail-otter/shared/constants';
 import type { ProviderSubscription, ProviderSubscriptionInternal } from '@mail-otter/shared/model';
 import { TimestampUtil, UUIDUtil } from '@mail-otter/shared/utils';
+import { BaseDAO } from './BaseDAO';
 
 interface UpsertProviderSubscriptionInput {
   applicationId: string;
@@ -22,12 +22,7 @@ interface UpsertProviderSubscriptionInput {
   expiresAt?: number | null | undefined;
 }
 
-class ProviderSubscriptionDAO {
-  protected readonly database: D1Queryable;
-
-  constructor(database: D1Queryable) {
-    this.database = database;
-  }
+class ProviderSubscriptionDAO extends BaseDAO {
 
   public async upsertActive(input: UpsertProviderSubscriptionInput): Promise<ProviderSubscription> {
     const existing: ProviderSubscription | undefined = await this.getByApplication(input.applicationId);

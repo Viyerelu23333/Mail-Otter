@@ -1,6 +1,6 @@
-import { ErrorCode, IServiceError } from './IServiceError';
+import { ErrorCode, ServiceError } from './IServiceError';
 
-class ForbiddenError extends IServiceError {
+class ForbiddenError extends ServiceError {
   constructor(message?: string | undefined) {
     super(message ?? 'You do not have permission to perform this action.');
   }

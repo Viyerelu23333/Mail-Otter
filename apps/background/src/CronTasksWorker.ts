@@ -80,7 +80,7 @@ class CronTasksWorker extends AbstractDurableObjectWorker {
       new OAuth2AccessTokenRefreshTask().handle(event, this.env, ctx),
       new ContextDocumentPruningTask().handle(event, this.env, ctx),
       new ImapPollingTask().handle(event, this.env, ctx),
-      SubscriptionRenewalUtil.renewDueSubscriptions(createD1SessionEnv(this.env)),
+      new SubscriptionRenewalUtil(createD1SessionEnv(this.env)).renewDueSubscriptions(),
     ]);
     await Promise.all([
       new ProcessedMessagePruningTask().handle(event, this.env, ctx),

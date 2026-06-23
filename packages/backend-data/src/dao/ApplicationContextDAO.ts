@@ -8,7 +8,6 @@ import {
 } from '@mail-otter/shared/constants';
 import { DatabaseError } from '@mail-otter/backend-errors';
 import { CursorUtil, executeD1WithRetry } from '../utils';
-import type { D1Queryable } from '../utils';
 import type {
   ApplicationContextDeletionRun,
   ApplicationContextDeletionRunInternal,
@@ -24,13 +23,9 @@ import type {
 } from '@mail-otter/shared/model';
 import type { ApplicationContextDeletionStatus, ApplicationContextDocumentStatus, ProviderId, ContextAuditEventType, ContextAuditLogSeverity } from '@mail-otter/shared/constants';
 import { TimestampUtil, UUIDUtil } from '@mail-otter/shared/utils';
+import { BaseDAO } from './BaseDAO';
 
-class ApplicationContextDAO {
-  protected readonly database: D1Queryable;
-
-  constructor(database: D1Queryable) {
-    this.database = database;
-  }
+class ApplicationContextDAO extends BaseDAO {
 
   public async upsertEmailDocument(input: UpsertEmailDocumentInput): Promise<ApplicationContextDocument> {
     const now: number = TimestampUtil.getCurrentUnixTimestampInSeconds();

@@ -22,12 +22,7 @@ class CreateOAuth2AuthorizationRoute extends IUserRoute<
     env: CreateOAuth2AuthorizationEnv,
     cxt: RouteContext<CreateOAuth2AuthorizationEnv>,
   ): Promise<CreateOAuth2AuthorizationResponse> {
-    return OAuth2AuthorizationService.createAuthorization(
-      this.getAuthenticatedUserEmailAddress(cxt),
-      request.applicationId,
-      env,
-      request.raw,
-    );
+    return new OAuth2AuthorizationService(env).createAuthorization(this.getAuthenticatedUserEmailAddress(cxt), request.applicationId, request.raw);
   }
 }
 

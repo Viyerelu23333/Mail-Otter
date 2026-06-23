@@ -21,7 +21,7 @@ class UpdateApplicationRoute extends IUserRoute<UpdateApplicationRequest, Update
     cxt: RouteContext<UpdateApplicationEnv>,
   ): Promise<UpdateApplicationResponse> {
     return {
-      application: await ApplicationService.updateUserApplication(this.getAuthenticatedUserEmailAddress(cxt), request, env, request.raw),
+      application: await new ApplicationService(env).updateUserApplication(this.getAuthenticatedUserEmailAddress(cxt), request, request.raw),
     };
   }
 }

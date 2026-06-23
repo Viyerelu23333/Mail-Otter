@@ -7,17 +7,15 @@ import { ConfigurationManager } from '@mail-otter/backend-runtime/config';
 import { BaseUrlUtil, TimestampUtil } from '@mail-otter/shared/utils';
 import { OAuth2ProviderUtil } from '@mail-otter/provider-clients/oauth2';
 import { OAuth2AccessTokenService } from './OAuth2AccessTokenService';
+import type { OAuth2AccessTokenServiceEnv } from './OAuth2AccessTokenService';
 import { OAuth2StateUtil } from './OAuth2StateUtil';
 
 class OAuth2AuthorizationService {
-  public static async createAuthorization(
-    userEmail: string,
-    applicationId: string,
-    env: CreateOAuth2AuthorizationEnv,
-    raw: Request,
-  ): Promise<OAuth2AuthorizationResult> {
-    const masterKey: string = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    const applicationDAO = new ConnectedApplicationDAO(env.DB, masterKey);
+  constructor(private readonly env: OAuth2AuthorizationServiceEnv) {}
+
+  async createAuthorization(userEmail: string, applicationId: string, raw: Request): Promise<OAuth2AuthorizationResult> {
+    const masterKey: string = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    const applicationDAO = new ConnectedApplicationDAO(this.env.DB, masterKey);
     const application: ConnectedApplication | undefined = await applicationDAO.getByIdForUser(applicationId, userEmail);
     if (!application) {
       throw new BadRequestError('Connected application was not found.');
@@ -32,9 +30,9 @@ class OAuth2AuthorizationService {
     const codeChallenge: string = await OAuth2StateUtil.getCodeChallenge(codeVerifier);
     const redirectUri: string = `${BaseUrlUtil.getBaseUrl(raw)}/api/oauth2/callback/${application.applicationId}`;
     const stateHash: string = await OAuth2StateUtil.getStateHash(state);
-    const expiryMinutes: number = ConfigurationManager.getOauth2StateExpiryMinutes(env);
+    const expiryMinutes: number = ConfigurationManager.getOauth2StateExpiryMinutes(this.env);
     const expiresAt: number = TimestampUtil.addMinutes(TimestampUtil.getCurrentUnixTimestampInSeconds(), expiryMinutes);
-    const sessionDAO = new OAuth2AuthorizationSessionDAO(env.DB);
+    const sessionDAO = new OAuth2AuthorizationSessionDAO(this.env.DB);
     await sessionDAO.create(application.applicationId, stateHash, codeVerifier, redirectUri, expiresAt);
     return {
       authorizationUrl: OAuth2ProviderUtil.buildAuthorizationUrl({
@@ -50,30 +48,33 @@ class OAuth2AuthorizationService {
     };
   }
 
-  public static async completeCallback(input: CompleteOAuth2CallbackInput, env: CompleteOAuth2CallbackEnv): Promise<void> {
+  async completeCallback(input: CompleteOAuth2CallbackInput): Promise<void> {
     const stateHash: string = await OAuth2StateUtil.getStateHash(input.state);
-    const sessionDAO = new OAuth2AuthorizationSessionDAO(env.DB);
+    const sessionDAO = new OAuth2AuthorizationSessionDAO(this.env.DB);
     const session: OAuth2AuthorizationSession | undefined = await sessionDAO.getActive(input.applicationId, stateHash);
     if (!session) {
       throw new BadRequestError('OAuth2 authorization session is invalid or expired.');
     }
 
-    const masterKey: string = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    const applicationDAO = new ConnectedApplicationDAO(env.DB, masterKey);
+    const masterKey: string = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    const applicationDAO = new ConnectedApplicationDAO(this.env.DB, masterKey);
     const application: ConnectedApplication | undefined = await applicationDAO.getById(input.applicationId);
     if (!application) {
       throw new BadRequestError('Connected application was not found.');
     }
-    await OAuth2AccessTokenService.completeAuthorization(
-      {
-        applicationId: input.applicationId,
-        redirectUri: session.redirectUri,
-        code: input.code,
-        codeVerifier: session.codeVerifier,
-      },
-      env,
-    );
+    await new OAuth2AccessTokenService(this.env as OAuth2AccessTokenServiceEnv).completeAuthorization({
+      applicationId: input.applicationId,
+      redirectUri: session.redirectUri,
+      code: input.code,
+      codeVerifier: session.codeVerifier,
+    });
     await sessionDAO.consume(session.sessionId);
+  }
+}
+
+class OAuth2AuthorizationServiceFactory {
+  static create(env: OAuth2AuthorizationServiceEnv): OAuth2AuthorizationService {
+    return new OAuth2AuthorizationService(env);
   }
 }
 
@@ -89,19 +90,14 @@ interface CompleteOAuth2CallbackInput {
   state: string;
 }
 
-interface CreateOAuth2AuthorizationEnv {
+interface OAuth2AuthorizationServiceEnv {
   DB: D1Queryable;
   AES_ENCRYPTION_KEY_SECRET: SecretsStoreSecret;
+  OAUTH2_TOKEN_CACHE?: KVNamespace | undefined;
+  OAUTH2_TOKEN_REFRESHERS?: DurableObjectNamespace | undefined;
+  OAUTH2_ACCESS_TOKEN_MIN_VALID_SECONDS?: string | undefined;
   OAUTH2_STATE_EXPIRY_MINUTES?: string | undefined;
 }
 
-interface CompleteOAuth2CallbackEnv {
-  DB: D1Queryable;
-  AES_ENCRYPTION_KEY_SECRET: SecretsStoreSecret;
-  OAUTH2_TOKEN_CACHE: KVNamespace;
-  OAUTH2_TOKEN_REFRESHERS: DurableObjectNamespace;
-  OAUTH2_ACCESS_TOKEN_MIN_VALID_SECONDS?: string | undefined;
-}
-
-export { OAuth2AuthorizationService };
-export type { CompleteOAuth2CallbackEnv, CompleteOAuth2CallbackInput, CreateOAuth2AuthorizationEnv, OAuth2AuthorizationResult };
+export { OAuth2AuthorizationService, OAuth2AuthorizationServiceFactory };
+export type { CompleteOAuth2CallbackInput, OAuth2AuthorizationResult, OAuth2AuthorizationServiceEnv };

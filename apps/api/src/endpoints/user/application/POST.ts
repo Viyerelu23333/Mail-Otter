@@ -20,7 +20,7 @@ class CreateApplicationRoute extends IUserRoute<CreateApplicationRequest, Create
     cxt: RouteContext<CreateApplicationEnv>,
   ): Promise<CreateApplicationResponse> {
     return {
-      application: await ApplicationService.createUserApplication(this.getAuthenticatedUserEmailAddress(cxt), request, env, request.raw),
+      application: await new ApplicationService(env).createUserApplication(this.getAuthenticatedUserEmailAddress(cxt), request, request.raw),
     };
   }
 }

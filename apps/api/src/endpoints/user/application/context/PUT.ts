@@ -35,7 +35,7 @@ class UpdateApplicationContextRoute extends IUserRoute<
       }
     }
     return {
-      application: await ContextService.updateContextSettings(this.getAuthenticatedUserEmailAddress(cxt), request, env, request.raw),
+      application: await new ContextService(env).updateContextSettings(this.getAuthenticatedUserEmailAddress(cxt), request, request.raw),
     };
   }
 }

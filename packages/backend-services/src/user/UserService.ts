@@ -22,26 +22,34 @@ interface CurrentUserSummary {
 }
 
 class UserService {
-  public static async upsertUser(email: string, db: D1Database): Promise<void> {
-    await new UserDAO(db).upsertByEmail(email);
+  constructor(private readonly env: UserServiceEnv) {}
+
+  async upsertUser(email: string): Promise<void> {
+    await new UserDAO(this.env.DB).upsertByEmail(email);
   }
 
-  public static async getCurrentUserSummary(env: UserServiceEnv): Promise<CurrentUserSummary> {
+  async getCurrentUserSummary(): Promise<CurrentUserSummary> {
     const today = new Date().toISOString().slice(0, 10);
-    const usage = await new AiDailyUsageDAO(env.DB).getByDate(today);
+    const usage = await new AiDailyUsageDAO(this.env.DB).getByDate(today);
     return {
       limits: {
-        maxApplicationsPerUser: ConfigurationManager.getMaxApplicationsPerUser(env),
-        maxContextDocumentsPerApplication: ConfigurationManager.getMaxContextDocumentsPerApplication(env),
+        maxApplicationsPerUser: ConfigurationManager.getMaxApplicationsPerUser(this.env),
+        maxContextDocumentsPerApplication: ConfigurationManager.getMaxContextDocumentsPerApplication(this.env),
       },
       aiUsage: {
         estimatedNeurons: usage?.estimatedNeurons ?? 0,
-        dailyNeuronLimit: ConfigurationManager.getAiDailyNeuronFreeTierLimit(env),
-        fallbackThreshold: ConfigurationManager.getAiDailyNeuronFallbackThreshold(env),
+        dailyNeuronLimit: ConfigurationManager.getAiDailyNeuronFreeTierLimit(this.env),
+        fallbackThreshold: ConfigurationManager.getAiDailyNeuronFallbackThreshold(this.env),
       },
     };
   }
 }
 
-export { UserService };
+class UserServiceFactory {
+  static create(env: UserServiceEnv): UserService {
+    return new UserService(env);
+  }
+}
+
+export { UserService, UserServiceFactory };
 export type { CurrentUserSummary, UserServiceEnv };

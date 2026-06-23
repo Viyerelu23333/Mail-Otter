@@ -18,9 +18,10 @@ vi.mock('@mail-otter/backend-services/email', async (importOriginal) => {
 });
 
 vi.mock('@mail-otter/backend-services/integration', () => ({
-  IntegrationService: {
-    sendToIntegrations: vi.fn().mockResolvedValue(undefined),
-  },
+  IntegrationService: vi.fn(function () {
+    return { sendToIntegrations: vi.fn().mockResolvedValue(undefined) };
+  }),
+  IntegrationServiceFactory: { create: vi.fn() },
 }));
 
 import { EmailProcessingWorkflow } from '@mail-otter/background';

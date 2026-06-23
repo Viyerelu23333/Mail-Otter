@@ -1,3 +1,4 @@
+export { BaseDAO, EncryptedDAO } from './BaseDAO';
 export { UserDAO } from './UserDAO';
 export { AiDailyUsageDAO } from './AiDailyUsageDAO';
 export type { AiDailyUsage, IncrementAiDailyUsageInput } from './AiDailyUsageDAO';

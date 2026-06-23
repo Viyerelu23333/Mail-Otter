@@ -21,7 +21,7 @@ class OAuth2AccessTokenRefreshTask extends IScheduledTask<OAuth2AccessTokenRefre
 
     for (const applicationId of applicationIds) {
       try {
-        await OAuth2AccessTokenService.refreshAccessToken(applicationId, env, { forceRefresh: true });
+        await new OAuth2AccessTokenService(env).refreshAccessToken(applicationId, { forceRefresh: true });
       } catch (error: unknown) {
         console.error(`Failed to refresh OAuth2 access token for application ${applicationId}:`, error);
       }

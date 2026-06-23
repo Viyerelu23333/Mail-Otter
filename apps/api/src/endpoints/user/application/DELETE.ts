@@ -18,7 +18,7 @@ class DeleteApplicationRoute extends IUserRoute<DeleteApplicationRequest, Delete
     env: DeleteApplicationEnv,
     cxt: RouteContext<DeleteApplicationEnv>,
   ): Promise<DeleteApplicationResponse> {
-    await ApplicationService.deleteUserApplication(this.getAuthenticatedUserEmailAddress(cxt), request.applicationId, env);
+    await new ApplicationService(env).deleteUserApplication(this.getAuthenticatedUserEmailAddress(cxt), request.applicationId);
     return { success: true };
   }
 }

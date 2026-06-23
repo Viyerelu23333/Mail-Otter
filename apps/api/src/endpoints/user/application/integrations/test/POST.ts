@@ -18,7 +18,7 @@ class TestIntegrationRoute extends IUserRoute<TestIntegrationRequest, TestIntegr
     env: TestIntegrationEnv,
     cxt: RouteContext<TestIntegrationEnv>,
   ): Promise<TestIntegrationResponse> {
-    await ApplicationService.testIntegration(this.getAuthenticatedUserEmailAddress(cxt), request.integrationId, env);
+    await new ApplicationService(env).testIntegration(this.getAuthenticatedUserEmailAddress(cxt), request.integrationId);
     return { success: true };
   }
 }

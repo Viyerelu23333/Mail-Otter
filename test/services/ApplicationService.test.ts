@@ -79,7 +79,7 @@ describe('ApplicationService', () => {
     it('returns decorated applications', async () => {
       mockListMetadataByUserEmail.mockResolvedValue([{ applicationId: 'app-1', userEmail: 'user@example.com' }]);
 
-      const result = await ApplicationService.listUserApplications('user@example.com', makeEnv(), new Request('https://example.com'));
+      const result = await new ApplicationService(makeEnv()).listUserApplications('user@example.com', new Request('https://example.com'));
 
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({ applicationId: 'app-1', decorated: true });
@@ -91,10 +91,9 @@ describe('ApplicationService', () => {
       mockCountByUserEmail.mockResolvedValue(0);
       mockCreate.mockResolvedValue({ applicationId: 'new-app' });
 
-      const result = await ApplicationService.createUserApplication(
+      const result = await new ApplicationService(makeEnv()).createUserApplication(
         'user@example.com',
         { displayName: 'My App', providerId: 'google-gmail', clientId: 'cid', clientSecret: 'cs' },
-        makeEnv(),
         new Request('https://example.com'),
       );
 
@@ -105,10 +104,9 @@ describe('ApplicationService', () => {
       mockCountByUserEmail.mockResolvedValue(99);
 
       await expect(
-        ApplicationService.createUserApplication(
+        new ApplicationService(makeEnv()).createUserApplication(
           'user@example.com',
           { displayName: 'My App', providerId: 'google-gmail', clientId: 'cid', clientSecret: 'cs' },
-          makeEnv(),
           new Request('https://example.com'),
         ),
       ).rejects.toThrow('Maximum 99 connected applications allowed per user.');
@@ -125,10 +123,9 @@ describe('ApplicationService', () => {
       });
       mockUpdateForUser.mockResolvedValue({ applicationId: 'app-1' });
 
-      const result = await ApplicationService.updateUserApplication(
+      const result = await new ApplicationService(makeEnv()).updateUserApplication(
         'user@example.com',
         { applicationId: 'app-1', displayName: 'Updated', providerId: 'google-gmail', connectionMethod: 'oauth2', clientId: 'cid', clientSecret: 'cs' },
-        makeEnv(),
         new Request('https://example.com'),
       );
 
@@ -139,10 +136,9 @@ describe('ApplicationService', () => {
       mockGetByIdForUser.mockResolvedValue(undefined);
 
       await expect(
-        ApplicationService.updateUserApplication(
+        new ApplicationService(makeEnv()).updateUserApplication(
           'user@example.com',
           { applicationId: 'nonexistent', displayName: 'X', providerId: 'google-gmail', connectionMethod: 'oauth2', clientId: 'cid', clientSecret: 'cs' },
-          makeEnv(),
           new Request('https://example.com'),
         ),
       ).rejects.toThrow('Connected application was not found.');
@@ -157,10 +153,9 @@ describe('ApplicationService', () => {
       });
 
       await expect(
-        ApplicationService.updateUserApplication(
+        new ApplicationService(makeEnv()).updateUserApplication(
           'user@example.com',
           { applicationId: 'app-1', displayName: 'X', providerId: 'microsoft-outlook', connectionMethod: 'oauth2', clientId: 'cid', clientSecret: 'cs' },
-          makeEnv(),
           new Request('https://example.com'),
         ),
       ).rejects.toThrow('Provider and connection method cannot be changed after creation.');
@@ -175,10 +170,9 @@ describe('ApplicationService', () => {
       });
       mockUpdateForUser.mockResolvedValue({ applicationId: 'app-1' });
 
-      await ApplicationService.updateUserApplication(
+      await new ApplicationService(makeEnv()).updateUserApplication(
         'user@example.com',
         { applicationId: 'app-1', displayName: 'Updated', providerId: 'google-gmail', connectionMethod: 'oauth2' },
-        makeEnv(),
         new Request('https://example.com'),
       );
 
@@ -196,10 +190,9 @@ describe('ApplicationService', () => {
       mockUpdateForUser.mockResolvedValue({ applicationId: 'app-1' });
       const filters = { includeRules: ['@company.com'] };
 
-      await ApplicationService.updateUserApplication(
+      await new ApplicationService(makeEnv()).updateUserApplication(
         'user@example.com',
         { applicationId: 'app-1', displayName: 'Updated', providerId: 'google-gmail', connectionMethod: 'oauth2', senderDomainFilters: filters },
-        makeEnv(),
         new Request('https://example.com'),
       );
 
@@ -217,10 +210,9 @@ describe('ApplicationService', () => {
       });
       mockUpdateForUser.mockResolvedValue({ applicationId: 'app-1' });
 
-      await ApplicationService.updateUserApplication(
+      await new ApplicationService(makeEnv()).updateUserApplication(
         'user@example.com',
         { applicationId: 'app-1', displayName: 'Updated', providerId: 'google-gmail', connectionMethod: 'oauth2', senderDomainFilters: null },
-        makeEnv(),
         new Request('https://example.com'),
       );
 
@@ -237,10 +229,9 @@ describe('ApplicationService', () => {
       });
       mockUpdateForUser.mockResolvedValue({ applicationId: 'app-1' });
 
-      await ApplicationService.updateUserApplication(
+      await new ApplicationService(makeEnv()).updateUserApplication(
         'user@example.com',
         { applicationId: 'app-1', displayName: 'Updated', providerId: 'google-gmail', connectionMethod: 'oauth2' },
-        makeEnv(),
         new Request('https://example.com'),
       );
 
@@ -258,7 +249,7 @@ describe('ApplicationService', () => {
       });
       mockUpdateForUser.mockResolvedValue({ applicationId: 'app-1' });
 
-      await ApplicationService.updateUserApplication(
+      await new ApplicationService(makeEnv()).updateUserApplication(
         'user@example.com',
         {
           applicationId: 'app-1',
@@ -267,7 +258,6 @@ describe('ApplicationService', () => {
           connectionMethod: 'oauth2',
           senderDomainFilters: { includeRules: ['@company.com'] },
         },
-        makeEnv(),
         new Request('https://example.com'),
       );
 
@@ -285,10 +275,9 @@ describe('ApplicationService', () => {
       });
       mockUpdateForUser.mockResolvedValue({ applicationId: 'app-1' });
 
-      await ApplicationService.updateUserApplication(
+      await new ApplicationService(makeEnv()).updateUserApplication(
         'user@example.com',
         { applicationId: 'app-1', displayName: 'Updated', providerId: 'google-gmail', connectionMethod: 'oauth2', clientId: 'new-cid' },
-        makeEnv(),
         new Request('https://example.com'),
       );
 
@@ -301,10 +290,9 @@ describe('ApplicationService', () => {
     it('updates and returns application', async () => {
       mockUpdateWatchedFolderIdsForUser.mockResolvedValue({ applicationId: 'app-1' });
 
-      const result = await ApplicationService.updateWatchedFolderIds(
+      const result = await new ApplicationService(makeEnv()).updateWatchedFolderIds(
         'user@example.com',
         { applicationId: 'app-1', folderIds: ['INBOX'] },
-        makeEnv(),
         new Request('https://example.com'),
       );
 
@@ -315,10 +303,9 @@ describe('ApplicationService', () => {
       mockUpdateWatchedFolderIdsForUser.mockResolvedValue(undefined);
 
       await expect(
-        ApplicationService.updateWatchedFolderIds(
+        new ApplicationService(makeEnv()).updateWatchedFolderIds(
           'user@example.com',
           { applicationId: 'app-1', folderIds: ['INBOX'] },
-          makeEnv(),
           new Request('https://example.com'),
         ),
       ).rejects.toThrow('Connected application was not found.');
@@ -335,7 +322,7 @@ describe('ApplicationService', () => {
         EMAIL_CONTEXT_INDEX: { deleteByIds: vi.fn().mockResolvedValue(undefined) },
       });
 
-      await ApplicationService.deleteUserApplication('user@example.com', 'app-1', env as never);
+      await new ApplicationService(env as never).deleteUserApplication('user@example.com', 'app-1');
 
       expect(mockListActiveVectorIdsForApplication).toHaveBeenCalledWith('app-1', 'user@example.com');
       expect(mockDeleteForUser).toHaveBeenCalledWith('app-1', 'user@example.com');
@@ -346,7 +333,7 @@ describe('ApplicationService', () => {
       mockDeleteAccessToken.mockResolvedValue(undefined);
       mockDeleteForUser.mockResolvedValue(undefined);
 
-      await ApplicationService.deleteUserApplication('user@example.com', 'app-1', makeEnv() as never);
+      await new ApplicationService(makeEnv() as never).deleteUserApplication('user@example.com', 'app-1');
 
       expect(mockListActiveVectorIdsForApplication).toHaveBeenCalled();
       expect(mockDeleteForUser).toHaveBeenCalled();

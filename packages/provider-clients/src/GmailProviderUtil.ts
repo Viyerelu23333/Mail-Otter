@@ -1,7 +1,7 @@
-import { ProviderApiNonRetryableError, ProviderApiRetryableError } from '@mail-otter/backend-errors';
 import { EmailContentUtil } from './EmailContentUtil';
 import { WebhookSecurityUtil } from './WebhookSecurityUtil';
 import type { GmailMessagePart, MailHeader } from './EmailContentUtil';
+import { fetchJsonWithBearer, createProviderApiError } from './BaseProviderHttp';
 
 interface GmailWatchResult {
   historyId: string;
@@ -53,13 +53,14 @@ class GmailProviderUtil {
   private static readonly MESSAGE_NOT_FOUND_PATTERN: RegExp = /Gmail request failed \(404\)/;
 
   public static async getProfile(accessToken: string): Promise<GmailProfile> {
-    return GmailProviderUtil.fetchJson<GmailProfile>('https://gmail.googleapis.com/gmail/v1/users/me/profile', accessToken);
+    return fetchJsonWithBearer<GmailProfile>('https://gmail.googleapis.com/gmail/v1/users/me/profile', accessToken, 'Gmail');
   }
 
   public static async listLabels(accessToken: string): Promise<GmailLabel[]> {
-    const data = await GmailProviderUtil.fetchJson<{ labels?: GmailLabel[] | undefined }>(
+    const data = await fetchJsonWithBearer<{ labels?: GmailLabel[] | undefined }>(
       'https://gmail.googleapis.com/gmail/v1/users/me/labels',
       accessToken,
+      'Gmail',
     );
     return (data.labels || []).sort((a, b) => a.name.localeCompare(b.name));
   }
@@ -79,7 +80,7 @@ class GmailProviderUtil {
     });
     const data = (await response.json()) as { historyId?: string; expiration?: string; error?: { message?: string } };
     if (!response.ok || !data.historyId || !data.expiration) {
-      throw GmailProviderUtil.createApiError('watch', response, data.error?.message || response.statusText);
+      throw createProviderApiError('Gmail', 'watch', response, data.error?.message || response.statusText);
     }
     return {
       historyId: data.historyId,
@@ -93,7 +94,7 @@ class GmailProviderUtil {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!response.ok) {
-      throw GmailProviderUtil.createApiError('stop', response, await response.text());
+      throw createProviderApiError('Gmail', 'stop', response, await response.text());
     }
   }
 
@@ -109,7 +110,7 @@ class GmailProviderUtil {
       if (singleLabelId) url.searchParams.set('labelId', singleLabelId);
       url.searchParams.set('maxResults', '500');
       if (pageToken) url.searchParams.set('pageToken', pageToken);
-      const data = await GmailProviderUtil.fetchJson<GmailHistoryListResponse>(url.toString(), accessToken);
+      const data = await fetchJsonWithBearer<GmailHistoryListResponse>(url.toString(), accessToken, 'Gmail');
       currentHistoryId = data.historyId || currentHistoryId;
       for (const history of data.history || []) {
         for (const added of history.messagesAdded || []) {
@@ -124,7 +125,7 @@ class GmailProviderUtil {
   public static async getMessage(accessToken: string, messageId: string): Promise<GmailMessage> {
     const url: URL = new URL(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}`);
     url.searchParams.set('format', 'FULL');
-    return GmailProviderUtil.fetchJson<GmailMessage>(url.toString(), accessToken);
+    return fetchJsonWithBearer<GmailMessage>(url.toString(), accessToken, 'Gmail');
   }
 
   public static isMessageNotFoundError(error: unknown): boolean {
@@ -133,7 +134,7 @@ class GmailProviderUtil {
   }
 
   public static async createCalendarEvent(accessToken: string, input: GmailCalendarEventInput): Promise<GmailCalendarEventResult> {
-    return GmailProviderUtil.fetchJson<GmailCalendarEventResult>('https://www.googleapis.com/calendar/v3/calendars/primary/events', accessToken, {
+    return fetchJsonWithBearer<GmailCalendarEventResult>('https://www.googleapis.com/calendar/v3/calendars/primary/events', accessToken, 'Gmail', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -154,7 +155,7 @@ class GmailProviderUtil {
     draftSubject?: string | undefined,
   ): Promise<GmailDraftReplyResult> {
     const message: string = GmailProviderUtil.createDraftReplyMimeMessage(from, originalMessage, draftBody, draftSubject);
-    return GmailProviderUtil.fetchJson<GmailDraftReplyResult>('https://gmail.googleapis.com/gmail/v1/users/me/drafts', accessToken, {
+    return fetchJsonWithBearer<GmailDraftReplyResult>('https://gmail.googleapis.com/gmail/v1/users/me/drafts', accessToken, 'Gmail', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -199,7 +200,7 @@ class GmailProviderUtil {
       }),
     });
     if (!response.ok) {
-      throw GmailProviderUtil.createApiError('send summary', response, await response.text());
+      throw createProviderApiError('Gmail', 'send summary', response, await response.text());
     }
     const sentMessage = (await response.json()) as { id: string };
     await GmailProviderUtil.trashGmailMessage(sentMessage.id, accessToken);
@@ -215,33 +216,6 @@ class GmailProviderUtil {
     if (!response.ok) {
       console.error(`Failed to trash Gmail message ${messageId}: ${await response.text()}`);
     }
-  }
-
-  private static async fetchJson<T>(url: string, accessToken: string, init: RequestInit = {}): Promise<T> {
-    const headers = new Headers(init.headers);
-    headers.set('Authorization', `Bearer ${accessToken}`);
-    const response: Response = await fetch(url, {
-      ...init,
-      headers,
-    });
-    const text: string = await response.text();
-    const data = text ? (JSON.parse(text) as T & { error?: { message?: string } }) : ({} as T & { error?: { message?: string } });
-    if (!response.ok) {
-      throw GmailProviderUtil.createApiError('request', response, data.error?.message || text || response.statusText);
-    }
-    return data as T;
-  }
-
-  private static createApiError(operation: string, response: Response, detail: string): Error {
-    const message: string = `Gmail ${operation} failed (${response.status}): ${detail || response.statusText}`;
-    if (GmailProviderUtil.isRetryableStatus(response.status)) {
-      return new ProviderApiRetryableError(message);
-    }
-    return new ProviderApiNonRetryableError(message);
-  }
-
-  private static isRetryableStatus(status: number): boolean {
-    return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
   }
 
   private static createSummaryMimeBoundary(seed: string): string {

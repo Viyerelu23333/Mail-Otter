@@ -1,5 +1,6 @@
 import { ProviderApiNonRetryableError, ProviderApiRetryableError } from '@mail-otter/backend-errors';
 import { EmailContentUtil } from './EmailContentUtil';
+import { fetchJsonWithBearer, createProviderApiError } from './BaseProviderHttp';
 
 interface OutlookMailboxProfile {
   emailAddress: string;
@@ -55,18 +56,19 @@ class OutlookProviderUtil {
   ];
 
   public static async listMailFolders(accessToken: string): Promise<OutlookMailFolder[]> {
-    const data = await OutlookProviderUtil.fetchJson<{ value?: OutlookMailFolder[] | undefined }>(
+    const data = await fetchJsonWithBearer<{ value?: OutlookMailFolder[] | undefined }>(
       'https://graph.microsoft.com/v1.0/me/mailFolders?$select=id,displayName&$top=100',
       accessToken,
+      'Microsoft Graph',
     );
     return data.value || [];
   }
 
   public static async getProfile(accessToken: string): Promise<OutlookMailboxProfile> {
-    const data = await OutlookProviderUtil.fetchJson<{
+    const data = await fetchJsonWithBearer<{
       mail?: string | null | undefined;
       userPrincipalName?: string | null | undefined;
-    }>('https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName', accessToken);
+    }>('https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName', accessToken, 'Microsoft Graph');
     const emailAddress: string | undefined = data.mail || data.userPrincipalName || undefined;
     if (!emailAddress) throw new ProviderApiNonRetryableError('Microsoft Graph profile did not include a mailbox address.');
     return { emailAddress };
@@ -81,12 +83,12 @@ class OutlookProviderUtil {
     folderId?: string,
   ): Promise<OutlookSubscriptionResult> {
     const resource = `/me/mailFolders('${folderId ?? 'Inbox'}')/messages`;
-    const data = await OutlookProviderUtil.fetchJson<{
+    const data = await fetchJsonWithBearer<{
       id?: string | undefined;
       expirationDateTime?: string | undefined;
       resource?: string | undefined;
       error?: { message?: string | undefined } | undefined;
-    }>('https://graph.microsoft.com/v1.0/subscriptions', accessToken, {
+    }>('https://graph.microsoft.com/v1.0/subscriptions', accessToken, 'Microsoft Graph', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -113,11 +115,11 @@ class OutlookProviderUtil {
     subscriptionId: string,
     expiresAt: number,
   ): Promise<OutlookSubscriptionResult> {
-    const data = await OutlookProviderUtil.fetchJson<{
+    const data = await fetchJsonWithBearer<{
       id?: string | undefined;
       expirationDateTime?: string | undefined;
       resource?: string | undefined;
-    }>(`https://graph.microsoft.com/v1.0/subscriptions/${encodeURIComponent(subscriptionId)}`, accessToken, {
+    }>(`https://graph.microsoft.com/v1.0/subscriptions/${encodeURIComponent(subscriptionId)}`, accessToken, 'Microsoft Graph', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ expirationDateTime: new Date(expiresAt * 1000).toISOString() }),
@@ -138,14 +140,14 @@ class OutlookProviderUtil {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!response.ok && response.status !== 404) {
-      throw OutlookProviderUtil.createApiError('delete subscription', response, await response.text());
+      throw createProviderApiError('Microsoft Graph', 'delete subscription', response, await response.text());
     }
   }
 
   public static async getMessage(accessToken: string, messageId: string): Promise<OutlookMessage> {
     const url: URL = new URL(`https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(messageId)}`);
     url.searchParams.set('$select', 'id,subject,conversationId,internetMessageId,body,from,sender,internetMessageHeaders');
-    return OutlookProviderUtil.fetchJson<OutlookMessage>(url.toString(), accessToken, {
+    return fetchJsonWithBearer<OutlookMessage>(url.toString(), accessToken, 'Microsoft Graph', {
       headers: { Prefer: 'outlook.body-content-type="text"' },
     });
   }
@@ -159,7 +161,7 @@ class OutlookProviderUtil {
   }
 
   public static async createCalendarEvent(accessToken: string, input: OutlookCalendarEventInput): Promise<OutlookCalendarEventResult> {
-    return OutlookProviderUtil.fetchJson<OutlookCalendarEventResult>('https://graph.microsoft.com/v1.0/me/events', accessToken, {
+    return fetchJsonWithBearer<OutlookCalendarEventResult>('https://graph.microsoft.com/v1.0/me/events', accessToken, 'Microsoft Graph', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -186,9 +188,10 @@ class OutlookProviderUtil {
     originalMessageId: string,
     draftBody: string,
   ): Promise<OutlookDraftReplyResult> {
-    const draft = await OutlookProviderUtil.fetchJson<OutlookDraftReplyResult>(
+    const draft = await fetchJsonWithBearer<OutlookDraftReplyResult>(
       `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(originalMessageId)}/createReply`,
       accessToken,
+      'Microsoft Graph',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -264,7 +267,7 @@ class OutlookProviderUtil {
       },
     );
     if (!response.ok) {
-      throw OutlookProviderUtil.createApiError('send summary reply', response, await response.text());
+      throw createProviderApiError('Microsoft Graph', 'send summary reply', response, await response.text());
     }
     const sentMessageId: string = await OutlookProviderUtil.findSentSummaryMessage(accessToken, marker);
     await OutlookProviderUtil.copyMessage(accessToken, sentMessageId, 'inbox');
@@ -281,9 +284,9 @@ class OutlookProviderUtil {
     );
     url.searchParams.set('$top', '1');
     url.searchParams.set('$select', 'id');
-    const data = await OutlookProviderUtil.fetchJson<{
+    const data = await fetchJsonWithBearer<{
       value?: Array<{ id: string }> | undefined;
-    }>(url.toString(), accessToken);
+    }>(url.toString(), accessToken, 'Microsoft Graph');
     return data.value && data.value.length > 0 ? data.value[0].id : null;
   }
 
@@ -310,30 +313,6 @@ class OutlookProviderUtil {
     return OutlookProviderUtil.MESSAGE_NOT_FOUND_PATTERNS.some((pattern: RegExp): boolean => pattern.test(message));
   }
 
-  private static async fetchJson<T>(url: string, accessToken: string, init: RequestInit = {}): Promise<T> {
-    const headers = new Headers(init.headers);
-    headers.set('Authorization', `Bearer ${accessToken}`);
-    const response: Response = await fetch(url, { ...init, headers });
-    const text: string = await response.text();
-    const data = text ? (JSON.parse(text) as T & { error?: { message?: string } }) : ({} as T & { error?: { message?: string } });
-    if (!response.ok) {
-      throw OutlookProviderUtil.createApiError('request', response, data.error?.message || text || response.statusText);
-    }
-    return data as T;
-  }
-
-  private static createApiError(operation: string, response: Response, detail: string): Error {
-    const message: string = `Microsoft Graph ${operation} failed (${response.status}): ${detail || response.statusText}`;
-    if (OutlookProviderUtil.isRetryableStatus(response.status)) {
-      return new ProviderApiRetryableError(message);
-    }
-    return new ProviderApiNonRetryableError(message);
-  }
-
-  private static isRetryableStatus(status: number): boolean {
-    return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
-  }
-
   private static async copyMessage(accessToken: string, messageId: string, destinationId: string): Promise<void> {
     const response = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(messageId)}/copy`, {
       method: 'POST',
@@ -344,7 +323,7 @@ class OutlookProviderUtil {
       body: JSON.stringify({ destinationId }),
     });
     if (!response.ok) {
-      throw OutlookProviderUtil.createApiError('copy message', response, await response.text());
+      throw createProviderApiError('Microsoft Graph', 'copy message', response, await response.text());
     }
   }
 
@@ -354,7 +333,7 @@ class OutlookProviderUtil {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!response.ok && response.status !== 404) {
-      throw OutlookProviderUtil.createApiError('delete message', response, await response.text());
+      throw createProviderApiError('Microsoft Graph', 'delete message', response, await response.text());
     }
   }
 

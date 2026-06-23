@@ -93,10 +93,9 @@ describe('ContextService', () => {
     it('updates contextIndexingEnabled and returns decorated application', async () => {
       mockUpdateContextIndexingForUser.mockResolvedValue({ applicationId: 'app-1', userEmail: 'user@example.com' });
 
-      const result = await ContextService.updateContextSettings(
+      const result = await new ContextService(makeEnv()).updateContextSettings(
         'user@example.com',
         { applicationId: 'app-1', contextIndexingEnabled: true },
-        makeEnv(),
         new Request('https://example.com'),
       );
 
@@ -107,10 +106,9 @@ describe('ContextService', () => {
     it('updates maxContextDocuments and returns decorated application', async () => {
       mockUpdateMaxContextDocumentsForUser.mockResolvedValue({ applicationId: 'app-1' });
 
-      const result = await ContextService.updateContextSettings(
+      const result = await new ContextService(makeEnv()).updateContextSettings(
         'user@example.com',
         { applicationId: 'app-1', maxContextDocuments: 50 },
-        makeEnv(),
         new Request('https://example.com'),
       );
 
@@ -121,10 +119,9 @@ describe('ContextService', () => {
     it('sets maxContextDocuments to null when explicitly null', async () => {
       mockUpdateMaxContextDocumentsForUser.mockResolvedValue({ applicationId: 'app-1' });
 
-      await ContextService.updateContextSettings(
+      await new ContextService(makeEnv()).updateContextSettings(
         'user@example.com',
         { applicationId: 'app-1', maxContextDocuments: null },
-        makeEnv(),
         new Request('https://example.com'),
       );
 
@@ -134,10 +131,9 @@ describe('ContextService', () => {
     it('fetches application when no update fields are provided', async () => {
       mockGetMetadataByIdForUser.mockResolvedValue({ applicationId: 'app-1' });
 
-      const result = await ContextService.updateContextSettings(
+      const result = await new ContextService(makeEnv()).updateContextSettings(
         'user@example.com',
         { applicationId: 'app-1' },
-        makeEnv(),
         new Request('https://example.com'),
       );
 
@@ -149,10 +145,9 @@ describe('ContextService', () => {
       mockUpdateContextIndexingForUser.mockResolvedValue(undefined);
 
       await expect(
-        ContextService.updateContextSettings(
+        new ContextService(makeEnv()).updateContextSettings(
           'user@example.com',
           { applicationId: 'app-1', contextIndexingEnabled: false },
-          makeEnv(),
           new Request('https://example.com'),
         ),
       ).rejects.toThrow('Connected application was not found.');
@@ -162,10 +157,9 @@ describe('ContextService', () => {
       mockUpdateMaxContextDocumentsForUser.mockResolvedValue(undefined);
 
       await expect(
-        ContextService.updateContextSettings(
+        new ContextService(makeEnv()).updateContextSettings(
           'user@example.com',
           { applicationId: 'app-1', maxContextDocuments: 10 },
-          makeEnv(),
           new Request('https://example.com'),
         ),
       ).rejects.toThrow('Connected application was not found.');
@@ -175,10 +169,9 @@ describe('ContextService', () => {
       mockGetMetadataByIdForUser.mockResolvedValue(undefined);
 
       await expect(
-        ContextService.updateContextSettings(
+        new ContextService(makeEnv()).updateContextSettings(
           'user@example.com',
           { applicationId: 'missing' },
-          makeEnv(),
           new Request('https://example.com'),
         ),
       ).rejects.toThrow('Connected application was not found.');
@@ -187,7 +180,7 @@ describe('ContextService', () => {
 
   describe('pruneApplicationDocuments', () => {
     it('returns early without pruning when within limit', async () => {
-      await ContextService.pruneApplicationDocuments('app-1', 'user@example.com', 5, 10, makeEnv());
+      await new ContextService(makeEnv()).pruneApplicationDocuments('app-1', 'user@example.com', 5, 10);
 
       expect(mockListOldestActiveVectorIdsForApplication).not.toHaveBeenCalled();
     });
@@ -198,7 +191,7 @@ describe('ContextService', () => {
       mockMarkDocumentsDeletedByVectorIds.mockResolvedValue(undefined);
       mockRecordDeletionRun.mockResolvedValue({ runId: 'run-1' });
 
-      await ContextService.pruneApplicationDocuments('app-1', 'user@example.com', 15, 10, makeEnv());
+      await new ContextService(makeEnv()).pruneApplicationDocuments('app-1', 'user@example.com', 15, 10);
 
       expect(mockMarkDocumentsDeletedByVectorIds).toHaveBeenCalledWith('app-1', 'user@example.com', ['v1', 'v2']);
       expect(mockRecordDeletionRun).toHaveBeenCalledWith(expect.objectContaining({ status: 'accepted' }));
@@ -207,7 +200,7 @@ describe('ContextService', () => {
     it('returns early when no vector IDs are found for pruning', async () => {
       mockListOldestActiveVectorIdsForApplication.mockResolvedValue([]);
 
-      await ContextService.pruneApplicationDocuments('app-1', 'user@example.com', 15, 10, makeEnv());
+      await new ContextService(makeEnv()).pruneApplicationDocuments('app-1', 'user@example.com', 15, 10);
 
       expect(mockMarkDocumentsDeletedByVectorIds).not.toHaveBeenCalled();
     });
@@ -218,7 +211,7 @@ describe('ContextService', () => {
       const env = makeEnv({ EMAIL_CONTEXT_INDEX: { deleteByIds: vi.fn().mockRejectedValue(new Error('Vectorize error')) } });
       mockRecordDeletionRun.mockResolvedValue(undefined);
 
-      await ContextService.pruneApplicationDocuments('app-1', 'user@example.com', 15, 10, env as never);
+      await new ContextService(env as never).pruneApplicationDocuments('app-1', 'user@example.com', 15, 10);
 
       expect(mockRecordDeletionRun).toHaveBeenCalledWith(expect.objectContaining({ status: 'error', errorMessage: 'Vectorize error' }));
     });
@@ -230,7 +223,7 @@ describe('ContextService', () => {
       mockMarkDocumentsDeletedByVectorIds.mockResolvedValue(undefined);
       mockRecordDeletionRun.mockResolvedValue(undefined);
 
-      await ContextService.pruneApplicationDocuments('app-1', 'user@example.com', 15, 10, makeEnv());
+      await new ContextService(makeEnv()).pruneApplicationDocuments('app-1', 'user@example.com', 15, 10);
 
       expect(mockInsertAuditLogs).toHaveBeenCalledWith(
         expect.arrayContaining([expect.objectContaining({ contextDocumentId: 'doc-1', eventType: 'document_deleted' })]),
@@ -242,7 +235,7 @@ describe('ContextService', () => {
     it('returns document list for user', async () => {
       mockListDocumentsForUser.mockResolvedValue({ items: [], cursor: null });
 
-      const result = await ContextService.listDocuments('user@example.com', { applicationId: 'app-1' }, makeEnv());
+      const result = await new ContextService(makeEnv()).listDocuments('user@example.com', { applicationId: 'app-1' });
 
       expect(result).toEqual({ items: [], cursor: null });
       expect(mockListDocumentsForUser).toHaveBeenCalledWith('user@example.com', { applicationId: 'app-1' });
@@ -253,7 +246,7 @@ describe('ContextService', () => {
     it('returns deletion run list for user', async () => {
       mockListDeletionRunsForUser.mockResolvedValue({ items: [{ runId: 'r1' }], cursor: null });
 
-      const result = await ContextService.listDeletionRuns('user@example.com', {}, makeEnv());
+      const result = await new ContextService(makeEnv()).listDeletionRuns('user@example.com', {});
 
       expect(result).toEqual({ items: [{ runId: 'r1' }], cursor: null });
     });
@@ -267,7 +260,7 @@ describe('ContextService', () => {
       mockGetDocumentSourcesByVectorIds.mockResolvedValue([]);
       mockRecordDeletionRun.mockResolvedValue({ runId: 'run-1' });
 
-      const result = await ContextService.deleteDocuments('user@example.com', 'app-1', makeEnv() as never);
+      const result = await new ContextService(makeEnv() as never).deleteDocuments('user@example.com', 'app-1');
 
       expect(result).toEqual({ runId: 'run-1' });
       expect(mockMarkDocumentsDeletedByVectorIds).toHaveBeenCalledWith('app-1', 'user@example.com', ['v1', 'v2']);
@@ -280,7 +273,7 @@ describe('ContextService', () => {
       const env = makeEnv({ EMAIL_CONTEXT_INDEX: { deleteByIds: vi.fn().mockRejectedValue(new Error('Delete failed')) } });
       mockRecordDeletionRun.mockResolvedValue({ runId: 'err-run' });
 
-      const result = await ContextService.deleteDocuments('user@example.com', 'app-1', env as never);
+      const result = await new ContextService(env as never).deleteDocuments('user@example.com', 'app-1');
 
       expect(result).toEqual({ runId: 'err-run' });
       expect(mockRecordDeletionRun).toHaveBeenCalledWith(expect.objectContaining({ status: 'error', deletedVectorCount: 0 }));
@@ -289,7 +282,7 @@ describe('ContextService', () => {
     it('throws when application is not found', async () => {
       mockGetMetadataByIdForUser.mockResolvedValue(undefined);
 
-      await expect(ContextService.deleteDocuments('user@example.com', 'missing', makeEnv() as never)).rejects.toThrow(
+      await expect(new ContextService(makeEnv() as never).deleteDocuments('user@example.com', 'missing')).rejects.toThrow(
         'Connected application was not found.',
       );
     });
@@ -300,7 +293,7 @@ describe('ContextService', () => {
       mockGetDocumentSourceForUser.mockResolvedValue({ contextDocumentId: 'doc-1' });
       mockListAuditLogs.mockResolvedValue({ items: [{ logId: 'l1' }], cursor: null });
 
-      const result = await ContextService.listAuditLogs('user@example.com', 'doc-1', makeEnv(), 'cursor-abc');
+      const result = await new ContextService(makeEnv()).listAuditLogs('user@example.com', 'doc-1', 'cursor-abc');
 
       expect(result).toEqual({ items: [{ logId: 'l1' }], cursor: null });
       expect(mockListAuditLogs).toHaveBeenCalledWith('doc-1', { cursor: 'cursor-abc' });
@@ -309,7 +302,7 @@ describe('ContextService', () => {
     it('throws when context document is not found', async () => {
       mockGetDocumentSourceForUser.mockResolvedValue(undefined);
 
-      await expect(ContextService.listAuditLogs('user@example.com', 'missing-doc', makeEnv())).rejects.toThrow(
+      await expect(new ContextService(makeEnv()).listAuditLogs('user@example.com', 'missing-doc')).rejects.toThrow(
         'Context document was not found.',
       );
     });
@@ -326,7 +319,7 @@ describe('ContextService', () => {
       });
       mockGetMetadataByIdForUser.mockResolvedValue({ applicationId: 'app-1', providerEmail: 'user@gmail.com' });
 
-      const url = await ContextService.getDocumentProviderLink('user@example.com', 'doc-1', makeEnv());
+      const url = await new ContextService(makeEnv()).getDocumentProviderLink('user@example.com', 'doc-1');
 
       expect(url).toContain('mail.google.com');
       expect(url).toContain('thread-abc');
@@ -343,7 +336,7 @@ describe('ContextService', () => {
       });
       mockGetMetadataByIdForUser.mockResolvedValue({ applicationId: 'app-1', providerEmail: null });
 
-      const url = await ContextService.getDocumentProviderLink('user@example.com', 'doc-1', makeEnv());
+      const url = await new ContextService(makeEnv()).getDocumentProviderLink('user@example.com', 'doc-1');
 
       expect(url).toContain('msg-xyz');
     });
@@ -357,7 +350,7 @@ describe('ContextService', () => {
       });
       mockGetMetadataByIdForUser.mockResolvedValue({ applicationId: 'app-1', providerEmail: 'user@outlook.com' });
 
-      const url = await ContextService.getDocumentProviderLink('user@example.com', 'doc-1', makeEnv());
+      const url = await new ContextService(makeEnv()).getDocumentProviderLink('user@example.com', 'doc-1');
 
       expect(url).toContain('outlook.office.com');
       expect(url).toContain('login_hint=user%40outlook.com');
@@ -366,7 +359,7 @@ describe('ContextService', () => {
     it('throws when context document is not found', async () => {
       mockGetDocumentSourceForUser.mockResolvedValue(undefined);
 
-      await expect(ContextService.getDocumentProviderLink('user@example.com', 'missing', makeEnv())).rejects.toThrow(
+      await expect(new ContextService(makeEnv()).getDocumentProviderLink('user@example.com', 'missing')).rejects.toThrow(
         'Context document was not found.',
       );
     });
@@ -379,7 +372,7 @@ describe('ContextService', () => {
       });
       mockGetMetadataByIdForUser.mockResolvedValue(undefined);
 
-      await expect(ContextService.getDocumentProviderLink('user@example.com', 'doc-1', makeEnv())).rejects.toThrow(
+      await expect(new ContextService(makeEnv()).getDocumentProviderLink('user@example.com', 'doc-1')).rejects.toThrow(
         'Connected application was not found.',
       );
     });
@@ -393,7 +386,7 @@ describe('ContextService', () => {
       });
       mockGetMetadataByIdForUser.mockResolvedValue({ applicationId: 'app-1', providerEmail: null });
 
-      await expect(ContextService.getDocumentProviderLink('user@example.com', 'doc-1', makeEnv())).rejects.toThrow(
+      await expect(new ContextService(makeEnv()).getDocumentProviderLink('user@example.com', 'doc-1')).rejects.toThrow(
         'Unsupported provider',
       );
     });

@@ -30,7 +30,7 @@ class ListContextDocumentAuditLogsRoute extends IUserRoute<
     }
 
     const userEmail: string = this.getAuthenticatedUserEmailAddress(cxt);
-    return ContextService.listAuditLogs(userEmail, contextDocumentId, env, this.getQueryParam(_request, 'cursor'));
+    return new ContextService(env).listAuditLogs(userEmail, contextDocumentId, this.getQueryParam(_request, 'cursor'));
   }
 }
 

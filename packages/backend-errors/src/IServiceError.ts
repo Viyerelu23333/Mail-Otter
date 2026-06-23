@@ -13,5 +13,4 @@ abstract class ServiceError extends Error {
 type ErrorCode = ContentfulStatusCode;
 
 export { ServiceError };
-export { ServiceError as IServiceError };
 export type { ErrorCode };

@@ -10,7 +10,7 @@ class MiddlewareHandlers {
     return async (c: UserContext, next: Next): Promise<Response | void> => {
       try {
         const userEmail: string = await EmailValidationUtil.getAuthenticatedUserEmail(c.req.raw, c.env);
-        await UserService.upsertUser(userEmail, c.env.DB);
+        await new UserService(c.env).upsertUser(userEmail);
         c.set('AuthenticatedUserEmailAddress', userEmail);
         await next();
       } catch (error: unknown) {

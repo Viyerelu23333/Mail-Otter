@@ -1,13 +1,8 @@
 import { executeD1WithRetry } from '../utils';
-import type { D1Queryable } from '../utils';
 import { TimestampUtil } from '@mail-otter/shared/utils';
+import { BaseDAO } from './BaseDAO';
 
-class AiDailyUsageDAO {
-  protected readonly database: D1Queryable;
-
-  constructor(database: D1Queryable) {
-    this.database = database;
-  }
+class AiDailyUsageDAO extends BaseDAO {
 
   public async getByDate(usageDate: string): Promise<AiDailyUsage | undefined> {
     const row: AiDailyUsageInternal | null = await this.database

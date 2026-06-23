@@ -24,7 +24,7 @@ describe('OAuth2AccessTokenService', () => {
       },
     } as unknown as Env;
 
-    const accessToken: string = await OAuth2AccessTokenService.getAccessToken('app-1', env);
+    const accessToken: string = await new OAuth2AccessTokenService(env).getAccessToken('app-1');
 
     expect(accessToken).toBe('cached-token');
     expect(env.OAUTH2_TOKEN_REFRESHERS.idFromName).not.toHaveBeenCalled();
@@ -44,7 +44,7 @@ describe('OAuth2AccessTokenService', () => {
       },
     } as unknown as Env;
 
-    const accessToken: string = await OAuth2AccessTokenService.getAccessToken('app-1', env);
+    const accessToken: string = await new OAuth2AccessTokenService(env).getAccessToken('app-1');
 
     expect(accessToken).toBe('fresh-token');
     expect(env.OAUTH2_TOKEN_REFRESHERS.idFromName).toHaveBeenCalledWith('app-1');
@@ -65,7 +65,7 @@ describe('OAuth2AccessTokenService', () => {
       },
     } as unknown as Env;
 
-    await expect(OAuth2AccessTokenService.getAccessToken('app-1', env)).rejects.toThrow(OAuth2TokenNonRetryableError);
+    await expect(new OAuth2AccessTokenService(env).getAccessToken('app-1')).rejects.toThrow(OAuth2TokenNonRetryableError);
   });
 
   it('classifies token worker server failures as retryable', async () => {
@@ -80,6 +80,6 @@ describe('OAuth2AccessTokenService', () => {
       },
     } as unknown as Env;
 
-    await expect(OAuth2AccessTokenService.getAccessToken('app-1', env)).rejects.toThrow(OAuth2TokenRetryableError);
+    await expect(new OAuth2AccessTokenService(env).getAccessToken('app-1')).rejects.toThrow(OAuth2TokenRetryableError);
   });
 });

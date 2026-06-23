@@ -24,7 +24,7 @@ class UpdateApplicationWatchSettingsRoute extends IUserRoute<
     cxt: RouteContext<UpdateApplicationWatchSettingsEnv>,
   ): Promise<UpdateApplicationWatchSettingsResponse> {
     return {
-      application: await ApplicationService.updateWatchedFolderIds(this.getAuthenticatedUserEmailAddress(cxt), request, env, request.raw),
+      application: await new ApplicationService(env).updateWatchedFolderIds(this.getAuthenticatedUserEmailAddress(cxt), request, request.raw),
     };
   }
 }

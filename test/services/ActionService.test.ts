@@ -79,9 +79,9 @@ vi.mock('@mail-otter/shared/utils', () => ({
 }));
 
 vi.mock('../../packages/backend-services/src/oauth2/OAuth2AccessTokenService', () => ({
-  OAuth2AccessTokenService: {
-    getAccessToken: vi.fn(async () => 'access-token'),
-  },
+  OAuth2AccessTokenService: vi.fn(function () {
+    return { getAccessToken: vi.fn(async () => 'access-token') };
+  }),
 }));
 
 vi.mock('@mail-otter/provider-clients/gmail', () => ({

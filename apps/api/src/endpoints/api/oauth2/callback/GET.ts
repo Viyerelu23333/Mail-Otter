@@ -34,14 +34,7 @@ class OAuth2CallbackRoute extends IBaseRoute<OAuth2CallbackRequest, OAuth2Callba
     }
 
     try {
-      await OAuth2AuthorizationService.completeCallback(
-        {
-          applicationId,
-          code,
-          state,
-        },
-        env,
-      );
+      await new OAuth2AuthorizationService(env).completeCallback({ applicationId, code, state });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'OAuth2 authorization failed.';
       return this.redirect(`/user/?oauth2=error&message=${encodeURIComponent(message)}`);

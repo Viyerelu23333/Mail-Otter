@@ -19,16 +19,7 @@ class UpdateIntegrationRoute extends IUserRoute<UpdateIntegrationRequest, Update
     env: UpdateIntegrationEnv,
     cxt: RouteContext<UpdateIntegrationEnv>,
   ): Promise<UpdateIntegrationResponse> {
-    const integration = await ApplicationService.updateIntegration(
-      this.getAuthenticatedUserEmailAddress(cxt),
-      {
-        integrationId: request.integrationId,
-        name: request.name,
-        enabled: request.enabled,
-        webhookUrl: request.webhookUrl,
-      },
-      env,
-    );
+    const integration = await new ApplicationService(env).updateIntegration(this.getAuthenticatedUserEmailAddress(cxt), { integrationId: request.integrationId, name: request.name, enabled: request.enabled, webhookUrl: request.webhookUrl });
     return { integration };
   }
 }
