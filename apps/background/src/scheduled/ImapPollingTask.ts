@@ -65,7 +65,7 @@ class ImapPollingTask extends IScheduledTask<ImapPollingTaskEnv> {
         port: application.imapPort ?? 993,
       };
     }
-    const accessToken = await OAuth2AccessTokenService.getAccessToken(application.applicationId, env);
+    const accessToken = await new OAuth2AccessTokenService(env).getAccessToken(application.applicationId);
     return {
       type: 'oauth2',
       accessToken,

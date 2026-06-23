@@ -55,9 +55,9 @@ vi.mock('@mail-otter/shared/utils', () => ({
 }));
 
 vi.mock('../../packages/backend-services/src/oauth2/OAuth2AccessTokenService', () => ({
-  OAuth2AccessTokenService: {
-    getAccessToken: vi.fn(() => 'access-token'),
-  },
+  OAuth2AccessTokenService: vi.fn(function () {
+    return { getAccessToken: vi.fn().mockResolvedValue('access-token') };
+  }),
 }));
 
 import { WatchService } from '../../packages/backend-services/src/subscription/WatchService';
@@ -100,11 +100,10 @@ describe('WatchService', () => {
         expiresAt: 1778200000 + 86400 * 3,
       });
 
-      const result = await WatchService.startApplicationWatch(
+      const result = await new WatchService(makeEnv()).startApplicationWatch(
         'user@example.com',
         'app-1',
         'https://example.com',
-        makeEnv(),
       );
 
       expect(result.message).toContain('Gmail watch started');
@@ -129,11 +128,10 @@ describe('WatchService', () => {
         expiresAt: 1778200000 + 86400 * 6,
       });
 
-      const result = await WatchService.startApplicationWatch(
+      const result = await new WatchService(makeEnv()).startApplicationWatch(
         'user@example.com',
         'app-1',
         'https://example.com',
-        makeEnv(),
       );
 
       expect(result.message).toContain('Outlook subscription started');
@@ -157,7 +155,7 @@ describe('WatchService', () => {
       });
 
       await expect(
-        WatchService.startApplicationWatch('user@example.com', 'app-1', 'https://example.com', makeEnv()),
+        new WatchService(makeEnv()).startApplicationWatch('user@example.com', 'app-1', 'https://example.com'),
       ).rejects.toThrow('Complete authorization');
     });
 
@@ -170,7 +168,7 @@ describe('WatchService', () => {
       });
 
       await expect(
-        WatchService.startApplicationWatch('user@example.com', 'app-1', 'https://example.com', makeEnv()),
+        new WatchService(makeEnv()).startApplicationWatch('user@example.com', 'app-1', 'https://example.com'),
       ).rejects.toThrow('missing provider mailbox metadata');
     });
 
@@ -185,7 +183,7 @@ describe('WatchService', () => {
       });
 
       await expect(
-        WatchService.startApplicationWatch('user@example.com', 'app-1', 'https://example.com', makeEnv()),
+        new WatchService(makeEnv()).startApplicationWatch('user@example.com', 'app-1', 'https://example.com'),
       ).rejects.toThrow('Gmail Pub/Sub topic name is required');
     });
 
@@ -199,7 +197,7 @@ describe('WatchService', () => {
       });
 
       await expect(
-        WatchService.startApplicationWatch('user@example.com', 'app-1', 'https://example.com', makeEnv()),
+        new WatchService(makeEnv()).startApplicationWatch('user@example.com', 'app-1', 'https://example.com'),
       ).rejects.toThrow('Unsupported provider');
     });
   });
@@ -215,7 +213,7 @@ describe('WatchService', () => {
       });
       mockGetByApplication.mockResolvedValue(undefined);
 
-      await WatchService.stopApplicationWatch('user@example.com', 'app-1', makeEnv());
+      await new WatchService(makeEnv()).stopApplicationWatch('user@example.com', 'app-1');
       expect(mockMarkStopped).toHaveBeenCalledWith('app-1');
     });
 
@@ -229,7 +227,7 @@ describe('WatchService', () => {
       });
       mockGetByApplication.mockResolvedValue({ externalSubscriptionId: 'sub-1' });
 
-      await WatchService.stopApplicationWatch('user@example.com', 'app-1', makeEnv());
+      await new WatchService(makeEnv()).stopApplicationWatch('user@example.com', 'app-1');
       expect(OutlookProviderUtil.deleteSubscription).toHaveBeenCalled();
       expect(mockMarkStopped).toHaveBeenCalledWith('app-1');
     });

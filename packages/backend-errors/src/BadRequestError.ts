@@ -1,6 +1,6 @@
-import { ErrorCode, IServiceError } from './IServiceError';
+import { ErrorCode, ServiceError } from './IServiceError';
 
-class BadRequestError extends IServiceError {
+class BadRequestError extends ServiceError {
   constructor(message?: string | undefined) {
     super(message ?? 'The request could not be understood or was missing required parameters.');
   }

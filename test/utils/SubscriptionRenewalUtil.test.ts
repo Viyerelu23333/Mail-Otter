@@ -62,14 +62,14 @@ describe('SubscriptionRenewalUtil', () => {
     vi.spyOn(ProviderSubscriptionDAO.prototype, 'markError').mockResolvedValue(undefined);
     vi.spyOn(ConnectedApplicationDAO.prototype, 'getById').mockResolvedValue(makeApplication());
     vi.spyOn(ConnectedApplicationDAO.prototype, 'updateOAuth2RefreshToken').mockResolvedValue(undefined);
-    vi.spyOn(OAuth2AccessTokenService, 'getAccessToken').mockResolvedValue('access-token');
+    vi.spyOn(OAuth2AccessTokenService.prototype, 'getAccessToken').mockResolvedValue('access-token');
     vi.spyOn(OutlookProviderUtil, 'renewSubscription').mockResolvedValue({
       id: 'renewed-subscription-id',
       resource: "/me/mailFolders('Inbox')/messages",
       expiresAt: Math.floor(Date.now() / 1000) + 3600,
     });
 
-    await SubscriptionRenewalUtil.renewDueSubscriptions(makeEnv());
+    await new SubscriptionRenewalUtil(makeEnv()).renewDueSubscriptions();
 
     expect(OutlookProviderUtil.renewSubscription).toHaveBeenCalledWith('access-token', 'graph-subscription-id', expect.any(Number));
     expect(upsertActive).toHaveBeenCalledWith(
@@ -92,10 +92,10 @@ describe('SubscriptionRenewalUtil', () => {
     vi.spyOn(ProviderSubscriptionDAO.prototype, 'markError').mockResolvedValue(undefined);
     vi.spyOn(ConnectedApplicationDAO.prototype, 'getById').mockResolvedValue(makeApplication());
     vi.spyOn(ConnectedApplicationDAO.prototype, 'updateOAuth2RefreshToken').mockResolvedValue(undefined);
-    vi.spyOn(OAuth2AccessTokenService, 'getAccessToken').mockResolvedValue('access-token');
+    vi.spyOn(OAuth2AccessTokenService.prototype, 'getAccessToken').mockResolvedValue('access-token');
     vi.spyOn(OutlookProviderUtil, 'renewSubscription').mockRejectedValue(new ProviderApiRetryableError('Service unavailable'));
 
-    await SubscriptionRenewalUtil.renewDueSubscriptions(makeEnv());
+    await new SubscriptionRenewalUtil(makeEnv()).renewDueSubscriptions();
 
     expect(recordTransientError).toHaveBeenCalledWith(
       'subscription-id',

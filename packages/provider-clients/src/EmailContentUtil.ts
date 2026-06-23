@@ -1,21 +1,12 @@
-import { convert } from 'html-to-text';
-
-interface ExtractedEmailContent {
-  text: string;
-  usedHtmlFallback: boolean;
-}
+import { escapeHtml, sanitizeHtml } from './email-content/HtmlContentUtil';
+import { stripHtml, normalizeText, truncate, isFromMailbox } from './email-content/TextContentUtil';
+import { toCrlf, buildAlternativeMimeBody, extractTextFromRaw } from './email-content/MimeContentUtil';
+import { extractGmailText, findGmailPart, decodeBase64Url } from './email-content/GmailContentUtil';
+import type { ExtractedEmailContent, GmailMessagePart } from './email-content/GmailContentUtil';
 
 interface MailHeader {
   name: string;
   value: string;
-}
-
-interface GmailMessagePart {
-  mimeType?: string | undefined;
-  filename?: string | undefined;
-  headers?: MailHeader[] | undefined;
-  body?: { data?: string | undefined } | undefined;
-  parts?: GmailMessagePart[] | undefined;
 }
 
 class EmailContentUtil {
@@ -25,174 +16,54 @@ class EmailContentUtil {
   }
 
   public static extractGmailText(payload: GmailMessagePart | undefined): ExtractedEmailContent {
-    const textPlain: string | undefined = EmailContentUtil.findGmailPart(payload, 'text/plain');
-    if (textPlain) return { text: EmailContentUtil.normalizeText(textPlain), usedHtmlFallback: false };
-    const html: string | undefined = EmailContentUtil.findGmailPart(payload, 'text/html');
-    return { text: EmailContentUtil.normalizeText(EmailContentUtil.stripHtml(html || '')), usedHtmlFallback: true };
+    return extractGmailText(payload);
   }
 
   public static stripHtml(value: string): string {
-    return convert(value, {
-      wordwrap: false,
-      selectors: [
-        { selector: 'script', format: 'skip' },
-        { selector: 'style', format: 'skip' },
-        { selector: 'br', format: 'lineBreak' },
-        { selector: 'p', options: { leadingLineBreaks: 0, trailingLineBreaks: 1 } },
-      ],
-    });
+    return stripHtml(value);
   }
 
   public static sanitizeHtml(value: string): string {
-    const parts: string[] = [];
-    let pos = 0;
-    const lowerVal = value.toLowerCase();
-
-    while (pos < value.length) {
-      const anchorIdx = lowerVal.indexOf('<a href="', pos);
-      if (anchorIdx === -1) {
-        parts.push(EmailContentUtil.escapeHtml(value.slice(pos)));
-        break;
-      }
-      parts.push(EmailContentUtil.escapeHtml(value.slice(pos, anchorIdx)));
-
-      const hrefStart = anchorIdx + 9;
-      const hrefEnd = value.indexOf('"', hrefStart);
-      if (hrefEnd === -1) {
-        parts.push(EmailContentUtil.escapeHtml(value.slice(anchorIdx)));
-        break;
-      }
-      const href = value.slice(hrefStart, hrefEnd);
-      if (!href.startsWith('http://') && !href.startsWith('https://')) {
-        parts.push(EmailContentUtil.escapeHtml(value.slice(anchorIdx)));
-        break;
-      }
-      const tagClose = value.indexOf('>', hrefEnd);
-      if (tagClose === -1) {
-        parts.push(EmailContentUtil.escapeHtml(value.slice(anchorIdx)));
-        break;
-      }
-      const closeAnchor = lowerVal.indexOf('</a>', tagClose);
-      if (closeAnchor === -1 || closeAnchor < tagClose) {
-        parts.push(EmailContentUtil.escapeHtml(value.slice(anchorIdx)));
-        break;
-      }
-      const innerText = value.slice(tagClose + 1, closeAnchor);
-
-      parts.push(`<a href="${EmailContentUtil.escapeHtml(href)}">${EmailContentUtil.escapeHtml(innerText)}</a>`);
-      pos = closeAnchor + 4;
-    }
-
-    return parts.join('');
+    return sanitizeHtml(value);
   }
 
   public static buildAlternativeMimeBody(textBody: string, htmlBody: string, boundary: string): string {
-    return [
-      `--${boundary}`,
-      'Content-Type: text/plain; charset=utf-8',
-      'Content-Transfer-Encoding: 8bit',
-      '',
-      EmailContentUtil.toCrlf(textBody),
-      `--${boundary}`,
-      'Content-Type: text/html; charset=utf-8',
-      'Content-Transfer-Encoding: 8bit',
-      '',
-      EmailContentUtil.toCrlf(htmlBody),
-      `--${boundary}--`,
-      '',
-    ].join('\r\n');
+    return buildAlternativeMimeBody(textBody, htmlBody, boundary);
   }
 
   public static normalizeText(value: string): string {
-    return value
-      .replace(/\r\n/g, '\n')
-      .replace(/\r/g, '\n')
-      .replace(/[ \t]+\n/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+    return normalizeText(value);
   }
 
   public static truncate(value: string, maxChars: number): string {
-    if (value.length <= maxChars) return value;
-    return `${value.slice(0, maxChars)}\n\n[Message truncated before summarization.]`;
+    return truncate(value, maxChars);
   }
 
-  public static isFromMailbox(fromHeaderOrAddress: string | undefined | null, mailboxAddress: string | undefined | null): boolean {
-    if (!fromHeaderOrAddress || !mailboxAddress) return false;
-    return fromHeaderOrAddress.toLowerCase().includes(mailboxAddress.toLowerCase());
+  public static isFromMailbox(
+    fromHeaderOrAddress: string | undefined | null,
+    mailboxAddress: string | undefined | null,
+  ): boolean {
+    return isFromMailbox(fromHeaderOrAddress, mailboxAddress);
   }
 
   public static extractTextFromRaw(raw: string): string {
-    const boundary = /boundary="?([^";\r\n]+)"?/i.exec(raw)?.[1];
-    if (!boundary) {
-      const headerEnd = raw.indexOf('\r\n\r\n');
-      const body = headerEnd >= 0 ? raw.slice(headerEnd + 4) : raw;
-      return EmailContentUtil.normalizeText(EmailContentUtil.stripHtml(body)).trim();
-    }
-    const parts = raw.split(`--${boundary}`);
-    for (const part of parts) {
-      if (!part.trim() || part.trim() === '--') continue;
-      const partHeaderEnd = part.indexOf('\r\n\r\n');
-      if (partHeaderEnd < 0) continue;
-      const partHeaders = part.slice(0, partHeaderEnd).toLowerCase();
-      const partBody = part.slice(partHeaderEnd + 4);
-      if (partHeaders.includes('text/plain')) {
-        return EmailContentUtil.normalizeText(partBody.split(`\r\n--${boundary}`)[0]).trim();
-      }
-    }
-    for (const part of parts) {
-      const partHeaderEnd = part.indexOf('\r\n\r\n');
-      if (partHeaderEnd < 0) continue;
-      const partHeaders = part.slice(0, partHeaderEnd).toLowerCase();
-      const partBody = part.slice(partHeaderEnd + 4);
-      if (partHeaders.includes('text/html')) {
-        return EmailContentUtil.normalizeText(EmailContentUtil.stripHtml(partBody.split(`\r\n--${boundary}`)[0])).trim();
-      }
-    }
-    return '';
+    return extractTextFromRaw(raw);
   }
 
-  private static toCrlf(value: string): string {
-    return value.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '\r\n');
+  public static toCrlf(value: string): string {
+    return toCrlf(value);
   }
 
-  private static escapeHtml(value: string): string {
-    return value.replace(/[&<>"']/g, (char: string): string => {
-      switch (char) {
-        case '&':
-          return '&amp;';
-        case '<':
-          return '&lt;';
-        case '>':
-          return '&gt;';
-        case '"':
-          return '&quot;';
-        case "'":
-          return '&#39;';
-        default:
-          return char;
-      }
-    });
+  public static decodeBase64Url(value: string): string {
+    return decodeBase64Url(value);
   }
 
-  private static findGmailPart(part: GmailMessagePart | undefined, mimeType: string): string | undefined {
-    if (!part) return undefined;
-    if (part.mimeType === mimeType && part.body?.data && !part.filename) {
-      return EmailContentUtil.decodeBase64Url(part.body.data);
-    }
-    for (const child of part.parts || []) {
-      const value: string | undefined = EmailContentUtil.findGmailPart(child, mimeType);
-      if (value) return value;
-    }
-    return undefined;
+  public static findGmailPart(part: GmailMessagePart | undefined, mimeType: string): string | undefined {
+    return findGmailPart(part, mimeType);
   }
 
-  private static decodeBase64Url(value: string): string {
-    const normalized: string = value.replace(/-/g, '+').replace(/_/g, '/');
-    const padded: string = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
-    const binary: string = atob(padded);
-    const bytes: Uint8Array = Uint8Array.from(binary, (char: string): number => char.charCodeAt(0));
-    return new TextDecoder().decode(bytes);
+  public static escapeHtml(value: string): string {
+    return escapeHtml(value);
   }
 }
 

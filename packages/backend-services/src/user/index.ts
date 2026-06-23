@@ -1,2 +1,2 @@
-export { UserService } from './UserService';
+export { UserService, UserServiceFactory } from './UserService';
 export type { CurrentUserSummary, UserServiceEnv } from './UserService';

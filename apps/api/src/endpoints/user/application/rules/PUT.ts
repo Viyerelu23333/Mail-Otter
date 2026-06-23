@@ -19,12 +19,7 @@ class UpdateApplicationRulesRoute extends IUserRoute<UpdateApplicationRulesReque
     env: UpdateApplicationRulesEnv,
     cxt: RouteContext<UpdateApplicationRulesEnv>,
   ): Promise<UpdateApplicationRulesResponse> {
-    const application = await ApplicationService.updateRules(
-      this.getAuthenticatedUserEmailAddress(cxt),
-      request.applicationId,
-      request.rules,
-      env,
-    );
+    const application = await new ApplicationService(env).updateRules(this.getAuthenticatedUserEmailAddress(cxt), request.applicationId, request.rules);
     return { application };
   }
 }

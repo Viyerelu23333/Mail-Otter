@@ -1,15 +1,10 @@
 import { DatabaseError } from '@mail-otter/backend-errors';
 import { executeD1WithRetry } from '../utils';
-import type { D1Queryable } from '../utils';
 import type { User, UserInternal } from '@mail-otter/shared/model';
 import { TimestampUtil } from '@mail-otter/shared/utils';
+import { BaseDAO } from './BaseDAO';
 
-class UserDAO {
-  protected readonly database: D1Queryable;
-
-  constructor(database: D1Queryable) {
-    this.database = database;
-  }
+class UserDAO extends BaseDAO {
 
   public async upsertByEmail(email: string): Promise<User> {
     const now: number = TimestampUtil.getCurrentUnixTimestampInSeconds();

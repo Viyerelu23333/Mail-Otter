@@ -22,13 +22,10 @@ import { EmailProviderRegistry } from '../provider/EmailProviderRegistry';
 import { EmailContextUtil } from './EmailContextUtil';
 
 class ContextService {
-  public static async updateContextSettings(
-    userEmail: string,
-    input: UpdateContextSettingsInput,
-    env: ContextServiceEnv,
-    raw: Request,
-  ): Promise<ApplicationResponse> {
-    const applicationDAO: ConnectedApplicationDAO = await ContextService.createApplicationDAO(env);
+  constructor(private readonly env: ContextServiceEnv) {}
+
+  async updateContextSettings(userEmail: string, input: UpdateContextSettingsInput, raw: Request): Promise<ApplicationResponse> {
+    const applicationDAO: ConnectedApplicationDAO = await this.createApplicationDAO();
     let application: ConnectedApplicationMetadata | undefined;
 
     if (input.contextIndexingEnabled !== undefined) {
@@ -46,20 +43,15 @@ class ContextService {
       if (!application) throw new BadRequestError('Connected application was not found.');
     }
 
-    return ApplicationResponseUtil.decorateApplication(application, env, raw);
+    return ApplicationResponseUtil.decorateApplication(application, this.env, raw);
   }
 
-  public static async pruneApplicationDocuments(
-    applicationId: string,
-    userEmail: string,
-    activeCount: number,
-    effectiveLimit: number,
-    env: PruneDocumentsEnv,
-  ): Promise<void> {
+  async pruneApplicationDocuments(applicationId: string, userEmail: string, activeCount: number, effectiveLimit: number): Promise<void> {
     const excessCount: number = activeCount - effectiveLimit;
     if (excessCount <= 0) return;
+    if (!this.env.EMAIL_CONTEXT_INDEX) return;
 
-    const contextDAO = new ApplicationContextDAO(env.DB);
+    const contextDAO = new ApplicationContextDAO(this.env.DB);
     const vectorNamespace: string = await EmailContextUtil.getUserVectorNamespace(userEmail);
     const vectorIds: string[] = await contextDAO.listOldestActiveVectorIdsForApplication(applicationId, userEmail, excessCount);
     if (vectorIds.length === 0) return;
@@ -68,13 +60,13 @@ class ContextService {
     try {
       for (const chunk of EmailContextUtil.chunk(vectorIds, 1000)) {
         if (chunk.length === 0) continue;
-        const mutation = await env.EMAIL_CONTEXT_INDEX.deleteByIds(chunk);
+        const mutation = await this.env.EMAIL_CONTEXT_INDEX.deleteByIds(chunk);
         if ('mutationId' in mutation && mutation.mutationId) {
           mutationIds.push(mutation.mutationId as string);
         }
       }
       await contextDAO.markDocumentsDeletedByVectorIds(applicationId, userEmail, vectorIds);
-      await ContextService.logDocumentDeletions(contextDAO, applicationId, userEmail, vectorIds);
+      await this.logDocumentDeletions(contextDAO, applicationId, userEmail, vectorIds);
       await contextDAO.recordDeletionRun({
         applicationId,
         userEmail,
@@ -98,41 +90,38 @@ class ContextService {
     }
   }
 
-  public static async listDocuments(userEmail: string, input: ListContextDocumentsInput, env: ContextListEnv): Promise<ApplicationContextDocumentList> {
-    const contextDAO = new ApplicationContextDAO(env.DB);
-    return contextDAO.listDocumentsForUser(userEmail, input);
+  async listDocuments(userEmail: string, input: ListContextDocumentsInput): Promise<ApplicationContextDocumentList> {
+    return new ApplicationContextDAO(this.env.DB).listDocumentsForUser(userEmail, input);
   }
 
-  public static async listDeletionRuns(userEmail: string, input: ListDeletionRunsInput, env: ContextListEnv): Promise<ApplicationContextDeletionRunList> {
-    const contextDAO = new ApplicationContextDAO(env.DB);
-    return contextDAO.listDeletionRunsForUser(userEmail, input);
+  async listDeletionRuns(userEmail: string, input: ListDeletionRunsInput): Promise<ApplicationContextDeletionRunList> {
+    return new ApplicationContextDAO(this.env.DB).listDeletionRunsForUser(userEmail, input);
   }
 
-  public static async deleteDocuments(
-    userEmail: string,
-    applicationId: string,
-    env: DeleteContextDocumentsEnv,
-  ): Promise<ApplicationContextDeletionRun> {
-    const applicationDAO: ConnectedApplicationDAO = await ContextService.createApplicationDAO(env);
+  async deleteDocuments(userEmail: string, applicationId: string): Promise<ApplicationContextDeletionRun> {
+    if (!this.env.EMAIL_CONTEXT_INDEX) {
+      throw new BadRequestError('Context index is not configured.');
+    }
+    const applicationDAO: ConnectedApplicationDAO = await this.createApplicationDAO();
     const application: ConnectedApplicationMetadata | undefined = await applicationDAO.getMetadataByIdForUser(applicationId, userEmail);
     if (!application) {
       throw new BadRequestError('Connected application was not found.');
     }
 
-    const contextDAO = new ApplicationContextDAO(env.DB);
+    const contextDAO = new ApplicationContextDAO(this.env.DB);
     const vectorIds: string[] = await contextDAO.listActiveVectorIdsForApplication(application.applicationId, userEmail);
     const vectorNamespace: string = await EmailContextUtil.getUserVectorNamespace(userEmail);
     const mutationIds: string[] = [];
     try {
       for (const chunk of EmailContextUtil.chunk(vectorIds, 1000)) {
         if (chunk.length === 0) continue;
-        const mutation = await env.EMAIL_CONTEXT_INDEX.deleteByIds(chunk);
+        const mutation = await this.env.EMAIL_CONTEXT_INDEX.deleteByIds(chunk);
         if ('mutationId' in mutation && mutation.mutationId) {
           mutationIds.push(mutation.mutationId);
         }
       }
       await contextDAO.markDocumentsDeletedByVectorIds(application.applicationId, userEmail, vectorIds);
-      await ContextService.logDocumentDeletions(contextDAO, application.applicationId, userEmail, vectorIds);
+      await this.logDocumentDeletions(contextDAO, application.applicationId, userEmail, vectorIds);
       return contextDAO.recordDeletionRun({
         applicationId: application.applicationId,
         userEmail,
@@ -156,13 +145,8 @@ class ContextService {
     }
   }
 
-  public static async listAuditLogs(
-    userEmail: string,
-    contextDocumentId: string,
-    env: ContextListEnv,
-    cursor?: string | undefined,
-  ): Promise<ContextAuditLogList> {
-    const contextDAO = new ApplicationContextDAO(env.DB);
+  async listAuditLogs(userEmail: string, contextDocumentId: string, cursor?: string | undefined): Promise<ContextAuditLogList> {
+    const contextDAO = new ApplicationContextDAO(this.env.DB);
     const document: ApplicationContextDocumentSource | undefined = await contextDAO.getDocumentSourceForUser(contextDocumentId, userEmail);
     if (!document) {
       throw new BadRequestError('Context document was not found.');
@@ -170,36 +154,30 @@ class ContextService {
     return contextDAO.listAuditLogs(contextDocumentId, { cursor });
   }
 
-  public static async getDocumentProviderLink(userEmail: string, contextDocumentId: string, env: ContextServiceEnv): Promise<string> {
-    const contextDAO = new ApplicationContextDAO(env.DB);
+  async getDocumentProviderLink(userEmail: string, contextDocumentId: string): Promise<string> {
+    const contextDAO = new ApplicationContextDAO(this.env.DB);
     const document: ApplicationContextDocumentSource | undefined = await contextDAO.getDocumentSourceForUser(contextDocumentId, userEmail);
     if (!document) {
       throw new BadRequestError('Context document was not found.');
     }
 
-    const applicationDAO: ConnectedApplicationDAO = await ContextService.createApplicationDAO(env);
+    const applicationDAO: ConnectedApplicationDAO = await this.createApplicationDAO();
     const application: ConnectedApplicationMetadata | undefined = await applicationDAO.getMetadataByIdForUser(document.applicationId, userEmail);
     if (!application) {
       throw new BadRequestError('Connected application was not found.');
     }
-    return ContextService.getProviderUrl(document, application);
+    return EmailProviderRegistry.get(document.sourceProviderId).getProviderUrl(document, application);
   }
 
-  private static async createApplicationDAO(env: ContextServiceEnv): Promise<ConnectedApplicationDAO> {
-    const masterKey: string = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    return new ConnectedApplicationDAO(env.DB, masterKey);
+  private async createApplicationDAO(): Promise<ConnectedApplicationDAO> {
+    if (!this.env.AES_ENCRYPTION_KEY_SECRET) throw new Error('AES_ENCRYPTION_KEY_SECRET is required for this operation.');
+    const masterKey: string = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    return new ConnectedApplicationDAO(this.env.DB, masterKey);
   }
 
-  private static async logDocumentDeletions(
-    contextDAO: ApplicationContextDAO,
-    applicationId: string,
-    userEmail: string,
-    vectorIds: string[],
-  ): Promise<void> {
+  private async logDocumentDeletions(contextDAO: ApplicationContextDAO, applicationId: string, userEmail: string, vectorIds: string[]): Promise<void> {
     const documents: Array<{ contextDocumentId: string; sourceDocumentId: string | null }> = await contextDAO.getDocumentSourcesByVectorIds(
-      applicationId,
-      userEmail,
-      vectorIds,
+      applicationId, userEmail, vectorIds,
     );
     if (documents.length === 0) return;
     await contextDAO.insertAuditLogs(
@@ -214,9 +192,11 @@ class ContextService {
       })),
     );
   }
+}
 
-  private static getProviderUrl(document: ApplicationContextDocumentSource, application: ConnectedApplicationMetadata): string {
-    return EmailProviderRegistry.get(document.sourceProviderId).getProviderUrl(document, application);
+class ContextServiceFactory {
+  static create(env: ContextServiceEnv): ContextService {
+    return new ContextService(env);
   }
 }
 
@@ -237,30 +217,16 @@ interface ListDeletionRunsInput {
   cursor?: string | undefined;
 }
 
-interface ContextListEnv {
+interface ContextServiceEnv {
   DB: D1Queryable;
+  AES_ENCRYPTION_KEY_SECRET?: SecretsStoreSecret | undefined;
+  EMAIL_CONTEXT_INDEX?: Vectorize | undefined;
 }
 
-interface ContextServiceEnv extends ContextListEnv {
-  AES_ENCRYPTION_KEY_SECRET: SecretsStoreSecret;
-}
-
-interface DeleteContextDocumentsEnv extends ContextServiceEnv {
-  EMAIL_CONTEXT_INDEX: Vectorize;
-}
-
-interface PruneDocumentsEnv {
-  DB: D1Queryable;
-  EMAIL_CONTEXT_INDEX: Vectorize;
-}
-
-export { ContextService };
+export { ContextService, ContextServiceFactory };
 export type {
-  ContextListEnv,
   ContextServiceEnv,
-  DeleteContextDocumentsEnv,
   ListContextDocumentsInput,
   ListDeletionRunsInput,
-  PruneDocumentsEnv,
   UpdateContextSettingsInput,
 };

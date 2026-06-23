@@ -59,9 +59,9 @@ vi.mock('../../packages/backend-services/src/oauth2/OAuth2StateUtil', () => ({
 }));
 
 vi.mock('../../packages/backend-services/src/oauth2/OAuth2AccessTokenService', () => ({
-  OAuth2AccessTokenService: {
-    completeAuthorization: mockCompleteAuthorization,
-  },
+  OAuth2AccessTokenService: vi.fn(function () {
+    return { completeAuthorization: mockCompleteAuthorization };
+  }),
 }));
 
 import { OAuth2AuthorizationService } from '../../packages/backend-services/src/oauth2/OAuth2AuthorizationService';
@@ -90,10 +90,9 @@ describe('OAuth2AuthorizationService', () => {
         credentials: { clientId: 'cid', clientSecret: 'cs' },
       });
 
-      const result = await OAuth2AuthorizationService.createAuthorization(
+      const result = await new OAuth2AuthorizationService(makeEnv() as never).createAuthorization(
         'user@example.com',
         'app-1',
-        makeEnv() as never,
         new Request('https://example.com'),
       );
 
@@ -105,10 +104,9 @@ describe('OAuth2AuthorizationService', () => {
       mockGetByIdForUser.mockResolvedValue(undefined);
 
       await expect(
-        OAuth2AuthorizationService.createAuthorization(
+        new OAuth2AuthorizationService(makeEnv() as never).createAuthorization(
           'user@example.com',
           'nonexistent',
-          makeEnv() as never,
           new Request('https://example.com'),
         ),
       ).rejects.toThrow('Connected application was not found.');
@@ -121,10 +119,9 @@ describe('OAuth2AuthorizationService', () => {
       });
 
       await expect(
-        OAuth2AuthorizationService.createAuthorization(
+        new OAuth2AuthorizationService(makeEnv() as never).createAuthorization(
           'user@example.com',
           'app-1',
-          makeEnv() as never,
           new Request('https://example.com'),
         ),
       ).rejects.toThrow('Connected application does not use OAuth2.');
@@ -145,9 +142,8 @@ describe('OAuth2AuthorizationService', () => {
         credentials: { clientId: 'cid' },
       });
 
-      await OAuth2AuthorizationService.completeCallback(
+      await new OAuth2AuthorizationService(makeEnv() as never).completeCallback(
         { applicationId: 'app-1', code: 'auth-code', state: 'state-token' },
-        makeEnv() as never,
       );
 
       expect(mockConsumeSession).toHaveBeenCalledWith('session-1');
@@ -157,9 +153,8 @@ describe('OAuth2AuthorizationService', () => {
       mockGetActiveSession.mockResolvedValue(undefined);
 
       await expect(
-        OAuth2AuthorizationService.completeCallback(
+        new OAuth2AuthorizationService(makeEnv() as never).completeCallback(
           { applicationId: 'app-1', code: 'code', state: 'state' },
-          makeEnv() as never,
         ),
       ).rejects.toThrow('OAuth2 authorization session is invalid or expired.');
     });

@@ -18,7 +18,7 @@ class DeleteIntegrationRoute extends IUserRoute<DeleteIntegrationRequest, Delete
     env: DeleteIntegrationEnv,
     cxt: RouteContext<DeleteIntegrationEnv>,
   ): Promise<DeleteIntegrationResponse> {
-    await ApplicationService.deleteIntegration(this.getAuthenticatedUserEmailAddress(cxt), request.integrationId, env);
+    await new ApplicationService(env).deleteIntegration(this.getAuthenticatedUserEmailAddress(cxt), request.integrationId);
     return { success: true };
   }
 }

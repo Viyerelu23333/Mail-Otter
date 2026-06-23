@@ -1,18 +1,14 @@
 import { encryptData, decryptData } from '../crypto';
 import { executeD1WithRetry } from '../utils';
-import type { D1Queryable } from '../utils';
 import { BadRequestError } from '@mail-otter/backend-errors';
 import type { OutboundIntegration, OutboundIntegrationInternal, OutboundIntegrationType } from '@mail-otter/shared/model';
 import { TimestampUtil, UUIDUtil } from '@mail-otter/shared/utils';
+import { EncryptedDAO } from './BaseDAO';
 
 const MAX_INTEGRATIONS_PER_APPLICATION = 5;
 const WEBHOOK_URL_PREFIX_LENGTH = 30;
 
-class ApplicationIntegrationDAO {
-  constructor(
-    private readonly database: D1Queryable,
-    private readonly masterKey: string,
-  ) {}
+class ApplicationIntegrationDAO extends EncryptedDAO {
 
   public async create(
     applicationId: string,

@@ -11,13 +11,10 @@ import { OAuth2AccessTokenService } from '../oauth2/OAuth2AccessTokenService';
 import type { AnyProviderCredentials } from '../provider/IEmailProvider';
 
 class WatchService {
-  public static async startApplicationWatch(
-    userEmail: string,
-    applicationId: string,
-    baseUrl: string,
-    env: WatchServiceEnv,
-  ): Promise<StartApplicationWatchResult> {
-    const application: ConnectedApplication = await WatchService.getConnectedApplicationForUser(userEmail, applicationId, env);
+  constructor(private readonly env: WatchServiceEnv) {}
+
+  async startApplicationWatch(userEmail: string, applicationId: string, baseUrl: string): Promise<StartApplicationWatchResult> {
+    const application: ConnectedApplication = await this.getConnectedApplicationForUser(userEmail, applicationId);
     if (application.status !== CONNECTED_APPLICATION_STATUS_CONNECTED) {
       throw new BadRequestError('Complete authorization before starting provider notifications.');
     }
@@ -26,13 +23,13 @@ class WatchService {
     }
 
     const provider = EmailProviderRegistry.get(application.providerId, application.connectionMethod);
-    const credentials = await WatchService.resolveCredentials(application, env);
-    const subscriptionDAO = new ProviderSubscriptionDAO(env.DB);
+    const credentials = await this.resolveCredentials(application);
+    const subscriptionDAO = new ProviderSubscriptionDAO(this.env.DB);
 
     const clientState = application.connectionMethod !== CONNECTION_METHOD_IMAP_PASSWORD
       ? WebhookSecurityUtil.generateSecret().slice(0, 128)
       : undefined;
-    const ttlDays: number = ConfigurationManager.getOutlookSubscriptionTtlDays(env);
+    const ttlDays: number = ConfigurationManager.getOutlookSubscriptionTtlDays(this.env);
     const expiresAt: number = TimestampUtil.addDays(TimestampUtil.getCurrentUnixTimestampInSeconds(), ttlDays);
 
     const result = await provider.startWatch(credentials, {
@@ -64,7 +61,6 @@ class WatchService {
       };
     }
 
-    // IMAP cursor-based polling subscription
     const subscription: ProviderSubscription = await subscriptionDAO.upsertActive({
       applicationId: application.applicationId,
       providerId: application.providerId,
@@ -78,12 +74,12 @@ class WatchService {
     };
   }
 
-  public static async stopApplicationWatch(userEmail: string, applicationId: string, env: WatchServiceEnv): Promise<void> {
-    const application: ConnectedApplication = await WatchService.getConnectedApplicationForUser(userEmail, applicationId, env);
-    const subscriptionDAO = new ProviderSubscriptionDAO(env.DB);
+  async stopApplicationWatch(userEmail: string, applicationId: string): Promise<void> {
+    const application: ConnectedApplication = await this.getConnectedApplicationForUser(userEmail, applicationId);
+    const subscriptionDAO = new ProviderSubscriptionDAO(this.env.DB);
     const subscription: ProviderSubscription | undefined = await subscriptionDAO.getByApplication(application.applicationId);
     const accessToken: string = application.connectionMethod !== CONNECTION_METHOD_IMAP_PASSWORD
-      ? await OAuth2AccessTokenService.getAccessToken(application.applicationId, env)
+      ? await new OAuth2AccessTokenService(this.env).getAccessToken(application.applicationId)
       : '';
     try {
       await EmailProviderRegistry.get(application.providerId, application.connectionMethod).stopWatch(accessToken, subscription?.externalSubscriptionId ?? undefined);
@@ -94,19 +90,15 @@ class WatchService {
     await subscriptionDAO.markStopped(application.applicationId);
   }
 
-  private static async getConnectedApplicationForUser(
-    userEmail: string,
-    applicationId: string,
-    env: WatchServiceEnv,
-  ): Promise<ConnectedApplication> {
-    const masterKey: string = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    const applicationDAO = new ConnectedApplicationDAO(env.DB, masterKey);
+  private async getConnectedApplicationForUser(userEmail: string, applicationId: string): Promise<ConnectedApplication> {
+    const masterKey: string = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    const applicationDAO = new ConnectedApplicationDAO(this.env.DB, masterKey);
     const application: ConnectedApplication | undefined = await applicationDAO.getByIdForUser(applicationId, userEmail);
     if (!application) throw new BadRequestError('Connected application was not found.');
     return application;
   }
 
-  private static async resolveCredentials(application: ConnectedApplication, env: WatchServiceEnv): Promise<AnyProviderCredentials> {
+  private async resolveCredentials(application: ConnectedApplication): Promise<AnyProviderCredentials> {
     if (application.connectionMethod === CONNECTION_METHOD_IMAP_PASSWORD) {
       if (!application.imapUsername || !application.imapPassword) {
         throw new BadRequestError('IMAP credentials are incomplete.');
@@ -119,8 +111,14 @@ class WatchService {
         port: application.imapPort ?? 993,
       };
     }
-    const accessToken = await OAuth2AccessTokenService.getAccessToken(application.applicationId, env);
+    const accessToken = await new OAuth2AccessTokenService(this.env).getAccessToken(application.applicationId);
     return { type: 'oauth2', accessToken };
+  }
+}
+
+class WatchServiceFactory {
+  static create(env: WatchServiceEnv): WatchService {
+    return new WatchService(env);
   }
 }
 
@@ -140,5 +138,5 @@ interface StartApplicationWatchResult {
   watchExpiresAt?: number | undefined;
 }
 
-export { WatchService };
+export { WatchService, WatchServiceFactory };
 export type { StartApplicationWatchResult, WatchServiceEnv };

@@ -1,6 +1,6 @@
-import { ErrorCode, IServiceError } from './IServiceError';
+import { ErrorCode, ServiceError } from './IServiceError';
 
-class UnauthorizedError extends IServiceError {
+class UnauthorizedError extends ServiceError {
   constructor(message?: string | undefined) {
     super(message ?? 'Authentication is required and has failed or has not yet been provided.');
   }

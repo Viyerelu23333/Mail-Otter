@@ -1,7 +1,7 @@
 import { CONNECTED_APPLICATION_STATUS_CONNECTED, CONNECTION_METHOD_OAUTH2 } from '@mail-otter/shared/constants';
 import { executeD1WithRetry } from '../utils';
-import type { D1Queryable } from '../utils';
 import { TimestampUtil } from '@mail-otter/shared/utils';
+import { BaseDAO } from './BaseDAO';
 
 interface OAuth2AccessTokenRefreshStatus {
   applicationId: string;
@@ -25,12 +25,7 @@ interface OAuth2AccessTokenRefreshStatusInternal {
   updated_at: number;
 }
 
-class OAuth2AccessTokenRefreshStatusDAO {
-  protected readonly database: D1Queryable;
-
-  constructor(database: D1Queryable) {
-    this.database = database;
-  }
+class OAuth2AccessTokenRefreshStatusDAO extends BaseDAO {
 
   public async getByApplication(applicationId: string): Promise<OAuth2AccessTokenRefreshStatus | undefined> {
     const row: OAuth2AccessTokenRefreshStatusInternal | null = await this.database

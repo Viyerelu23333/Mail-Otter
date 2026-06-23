@@ -19,12 +19,7 @@ class StartApplicationWatchRoute extends IUserRoute<StartApplicationWatchRequest
     env: StartApplicationWatchEnv,
     cxt: RouteContext<StartApplicationWatchEnv>,
   ): Promise<StartApplicationWatchResponse> {
-    return WatchService.startApplicationWatch(
-      this.getAuthenticatedUserEmailAddress(cxt),
-      request.applicationId,
-      BaseUrlUtil.getBaseUrl(request.raw),
-      env,
-    );
+    return new WatchService(env).startApplicationWatch(this.getAuthenticatedUserEmailAddress(cxt), request.applicationId, BaseUrlUtil.getBaseUrl(request.raw));
   }
 }
 

@@ -47,11 +47,13 @@ import { createD1SessionEnv } from '@mail-otter/backend-data/utils';
 
 const D1_BOOKMARK_HEADER: string = 'x-d1-bookmark';
 
+type AppRouter = HonoOpenAPIRouterType<{
+  Bindings: Env;
+  Variables: { AuthenticatedUserEmailAddress: string };
+}>;
+
 class MailOtterWorker extends AbstractEntrypointWorker {
-  protected readonly app: HonoOpenAPIRouterType<{
-    Bindings: Env;
-    Variables: { AuthenticatedUserEmailAddress: string };
-  }>;
+  protected readonly app: AppRouter;
 
   constructor() {
     super();
@@ -81,53 +83,14 @@ class MailOtterWorker extends AbstractEntrypointWorker {
 
     app.use('/user/*', MiddlewareHandlers.userAuthentication());
 
-    const openapi: HonoOpenAPIRouterType<{
-      Bindings: Env;
-      Variables: { AuthenticatedUserEmailAddress: string };
-    }> = fromHono(app, {
+    const openapi: AppRouter = fromHono(app, {
       docs_url: '/docs',
       openapi_url: '/openapi.json',
     });
 
-    openapi.get('/user/me', GetCurrentUserRoute);
-    openapi.get('/user/applications', ListApplicationsRoute);
-    openapi.post('/user/application', CreateApplicationRoute);
-    openapi.put('/user/application', UpdateApplicationRoute);
-    openapi.delete('/user/application', DeleteApplicationRoute);
-    openapi.put('/user/application/context', UpdateApplicationContextRoute);
-    openapi.post('/user/application/dismiss-error', DismissApplicationErrorRoute);
-    openapi.post('/user/application/context/delete-documents', DeleteApplicationContextDocumentsRoute);
-    openapi.get('/user/application/context/documents', ListApplicationContextDocumentsRoute);
-    openapi.get('/user/application/context/deletions', ListApplicationContextDeletionRunsRoute);
-    openapi.get('/user/application/context/document/:contextDocumentId/provider-link', GetApplicationContextDocumentProviderLinkRoute);
-    openapi.get('/user/application/context/document/:contextDocumentId/logs', ListContextDocumentAuditLogsRoute);
-    openapi.get('/user/analytics', GetAnalyticsRoute);
-    openapi.get('/user/actions', ListEmailActionsRoute);
-    openapi.get('/user/actions/:actionId/executions', ListEmailActionExecutionsRoute);
-    openapi.post('/user/actions/:actionId/execute', ExecuteUserEmailActionRoute);
-    openapi.get('/user/application/folders', GetApplicationFoldersRoute);
-    openapi.put('/user/application/watch-settings', UpdateApplicationWatchSettingsRoute);
-    openapi.post('/user/application/oauth2/authorize', CreateOAuth2AuthorizationRoute);
-    openapi.post('/user/application/watch', StartApplicationWatchRoute);
-    openapi.post('/user/application/stop', StopApplicationWatchRoute);
-    openapi.get('/user/application/rules', GetApplicationRulesRoute);
-    openapi.put('/user/application/rules', UpdateApplicationRulesRoute);
-    openapi.post('/user/application/rules/suggest', SuggestApplicationRuleRoute);
-    openapi.get('/user/application/integrations', ListIntegrationsRoute);
-    openapi.post('/user/application/integration', CreateIntegrationRoute);
-    openapi.put('/user/application/integration', UpdateIntegrationRoute);
-    openapi.delete('/user/application/integration', DeleteIntegrationRoute);
-    openapi.post('/user/application/integration/test', TestIntegrationRoute);
-
-    openapi.get('/api/oauth2/callback/:applicationId', OAuth2CallbackRoute);
-    openapi.get('/api/actions/:actionId', GetActionConfirmationRoute);
-    openapi.post('/api/actions/:actionId/execute', ExecuteActionCallbackRoute);
-    openapi.post('/api/webhooks/fastmail/:applicationId', FastmailWebhookRoute);
-    openapi.post('/api/webhooks/gmail/:applicationId', GmailWebhookRoute);
-    openapi.get('/api/webhooks/outlook/:applicationId', OutlookWebhookRoute);
-    openapi.post('/api/webhooks/outlook/:applicationId', OutlookWebhookRoute);
-    openapi.get('/api/webhooks/outlook/lifecycle/:applicationId', OutlookLifecycleWebhookRoute);
-    openapi.post('/api/webhooks/outlook/lifecycle/:applicationId', OutlookLifecycleWebhookRoute);
+    this.registerUserRoutes(openapi);
+    this.registerPublicApiRoutes(openapi);
+    this.registerWebhookRoutes(openapi);
 
     app.get('*', (c) => {
       const path: string = new URL(c.req.url).pathname;
@@ -141,6 +104,58 @@ class MailOtterWorker extends AbstractEntrypointWorker {
     });
 
     this.app = openapi;
+  }
+
+  private registerUserRoutes(openapi: AppRouter): void {
+    openapi.get('/user/me', GetCurrentUserRoute);
+    openapi.get('/user/analytics', GetAnalyticsRoute);
+
+    openapi.get('/user/applications', ListApplicationsRoute);
+    openapi.post('/user/application', CreateApplicationRoute);
+    openapi.put('/user/application', UpdateApplicationRoute);
+    openapi.delete('/user/application', DeleteApplicationRoute);
+    openapi.post('/user/application/dismiss-error', DismissApplicationErrorRoute);
+    openapi.post('/user/application/oauth2/authorize', CreateOAuth2AuthorizationRoute);
+    openapi.post('/user/application/watch', StartApplicationWatchRoute);
+    openapi.post('/user/application/stop', StopApplicationWatchRoute);
+    openapi.get('/user/application/folders', GetApplicationFoldersRoute);
+    openapi.put('/user/application/watch-settings', UpdateApplicationWatchSettingsRoute);
+
+    openapi.put('/user/application/context', UpdateApplicationContextRoute);
+    openapi.post('/user/application/context/delete-documents', DeleteApplicationContextDocumentsRoute);
+    openapi.get('/user/application/context/documents', ListApplicationContextDocumentsRoute);
+    openapi.get('/user/application/context/deletions', ListApplicationContextDeletionRunsRoute);
+    openapi.get('/user/application/context/document/:contextDocumentId/provider-link', GetApplicationContextDocumentProviderLinkRoute);
+    openapi.get('/user/application/context/document/:contextDocumentId/logs', ListContextDocumentAuditLogsRoute);
+
+    openapi.get('/user/application/rules', GetApplicationRulesRoute);
+    openapi.put('/user/application/rules', UpdateApplicationRulesRoute);
+    openapi.post('/user/application/rules/suggest', SuggestApplicationRuleRoute);
+
+    openapi.get('/user/application/integrations', ListIntegrationsRoute);
+    openapi.post('/user/application/integration', CreateIntegrationRoute);
+    openapi.put('/user/application/integration', UpdateIntegrationRoute);
+    openapi.delete('/user/application/integration', DeleteIntegrationRoute);
+    openapi.post('/user/application/integration/test', TestIntegrationRoute);
+
+    openapi.get('/user/actions', ListEmailActionsRoute);
+    openapi.get('/user/actions/:actionId/executions', ListEmailActionExecutionsRoute);
+    openapi.post('/user/actions/:actionId/execute', ExecuteUserEmailActionRoute);
+  }
+
+  private registerPublicApiRoutes(openapi: AppRouter): void {
+    openapi.get('/api/oauth2/callback/:applicationId', OAuth2CallbackRoute);
+    openapi.get('/api/actions/:actionId', GetActionConfirmationRoute);
+    openapi.post('/api/actions/:actionId/execute', ExecuteActionCallbackRoute);
+  }
+
+  private registerWebhookRoutes(openapi: AppRouter): void {
+    openapi.post('/api/webhooks/fastmail/:applicationId', FastmailWebhookRoute);
+    openapi.post('/api/webhooks/gmail/:applicationId', GmailWebhookRoute);
+    openapi.get('/api/webhooks/outlook/:applicationId', OutlookWebhookRoute);
+    openapi.post('/api/webhooks/outlook/:applicationId', OutlookWebhookRoute);
+    openapi.get('/api/webhooks/outlook/lifecycle/:applicationId', OutlookLifecycleWebhookRoute);
+    openapi.post('/api/webhooks/outlook/lifecycle/:applicationId', OutlookLifecycleWebhookRoute);
   }
 
   protected async onRequest(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {

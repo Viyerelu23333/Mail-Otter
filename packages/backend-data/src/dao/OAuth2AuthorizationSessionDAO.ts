@@ -1,14 +1,9 @@
 import { executeD1WithRetry } from '../utils';
-import type { D1Queryable } from '../utils';
 import type { OAuth2AuthorizationSession, OAuth2AuthorizationSessionInternal } from '@mail-otter/shared/model';
 import { TimestampUtil, UUIDUtil } from '@mail-otter/shared/utils';
+import { BaseDAO } from './BaseDAO';
 
-class OAuth2AuthorizationSessionDAO {
-  protected readonly database: D1Queryable;
-
-  constructor(database: D1Queryable) {
-    this.database = database;
-  }
+class OAuth2AuthorizationSessionDAO extends BaseDAO {
 
   public async create(
     applicationId: string,

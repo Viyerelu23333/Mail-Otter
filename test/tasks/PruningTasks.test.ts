@@ -41,11 +41,15 @@ vi.mock('@mail-otter/backend-data/dao', () => ({
 }));
 
 vi.mock('@mail-otter/backend-services/email', () => ({
-  ContextService: { pruneApplicationDocuments: mocks.mockPruneApplicationDocuments },
+  ContextService: vi.fn(function () {
+    return { pruneApplicationDocuments: mocks.mockPruneApplicationDocuments };
+  }),
 }));
 
 vi.mock('@mail-otter/backend-services/oauth2', () => ({
-  OAuth2AccessTokenService: { refreshAccessToken: mocks.mockRefreshAccessToken },
+  OAuth2AccessTokenService: vi.fn(function () {
+    return { refreshAccessToken: mocks.mockRefreshAccessToken };
+  }),
 }));
 
 vi.mock('@mail-otter/backend-services/action', () => ({
@@ -190,7 +194,7 @@ describe('ContextDocumentPruningTask', () => {
     ]);
     mocks.mockPruneApplicationDocuments.mockResolvedValue(undefined);
     await new ContextDocumentPruningTask().handle(createScheduledController(), createMockEnv() as Env, createExecutionContext());
-    expect(mocks.mockPruneApplicationDocuments).toHaveBeenCalledWith('app-1', 'user@test.com', 150, 100, expect.any(Object));
+    expect(mocks.mockPruneApplicationDocuments).toHaveBeenCalledWith('app-1', 'user@test.com', 150, 100);
   });
 });
 
@@ -225,7 +229,7 @@ describe('OAuth2AccessTokenRefreshTask', () => {
     }) as Env, createExecutionContext());
     expect(mocks.mockListDueApplicationIds).toHaveBeenCalled();
     expect(mocks.mockRefreshAccessToken).toHaveBeenCalledTimes(2);
-    expect(mocks.mockRefreshAccessToken).toHaveBeenCalledWith('app-1', expect.any(Object), { forceRefresh: true });
+    expect(mocks.mockRefreshAccessToken).toHaveBeenCalledWith('app-1', { forceRefresh: true });
   });
 
   it('continues when token refresh fails for one application', async () => {

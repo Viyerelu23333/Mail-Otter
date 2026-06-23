@@ -86,7 +86,7 @@ class EmailProcessingWorkflow extends AbstractWorkflowWorker<EmailQueueMessage, 
               { retries: { limit: 2, delay: '5 seconds', backoff: 'linear' }, timeout: '1 minute' },
               async (): Promise<void> => {
                 try {
-                  await IntegrationService.sendToIntegrations(summaryData, createD1SessionEnv(this.env));
+                  await new IntegrationService(createD1SessionEnv(this.env)).sendToIntegrations(summaryData);
                 } catch (error: unknown) {
                   throw EmailProcessingWorkflow.toWorkflowError(error);
                 }
@@ -150,7 +150,7 @@ class EmailProcessingWorkflow extends AbstractWorkflowWorker<EmailQueueMessage, 
           { retries: { limit: 2, delay: '5 seconds', backoff: 'linear' }, timeout: '1 minute' },
           async (): Promise<void> => {
             try {
-              await IntegrationService.sendToIntegrations(summaryData, createD1SessionEnv(this.env));
+              await new IntegrationService(createD1SessionEnv(this.env)).sendToIntegrations(summaryData);
             } catch (error: unknown) {
               throw EmailProcessingWorkflow.toWorkflowError(error);
             }
@@ -196,7 +196,7 @@ class EmailProcessingWorkflow extends AbstractWorkflowWorker<EmailQueueMessage, 
           { retries: { limit: 2, delay: '5 seconds', backoff: 'linear' }, timeout: '1 minute' },
           async (): Promise<void> => {
             try {
-              await IntegrationService.sendToIntegrations(summaryData, createD1SessionEnv(this.env));
+              await new IntegrationService(createD1SessionEnv(this.env)).sendToIntegrations(summaryData);
             } catch (error: unknown) {
               throw EmailProcessingWorkflow.toWorkflowError(error);
             }
@@ -249,7 +249,7 @@ class EmailProcessingWorkflow extends AbstractWorkflowWorker<EmailQueueMessage, 
               { retries: { limit: 2, delay: '5 seconds', backoff: 'linear' }, timeout: '1 minute' },
               async (): Promise<void> => {
                 try {
-                  await IntegrationService.sendToIntegrations(summaryData, createD1SessionEnv(this.env));
+                  await new IntegrationService(createD1SessionEnv(this.env)).sendToIntegrations(summaryData);
                 } catch (error: unknown) {
                   throw EmailProcessingWorkflow.toWorkflowError(error);
                 }

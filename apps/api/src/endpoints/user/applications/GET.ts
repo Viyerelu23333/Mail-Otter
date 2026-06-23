@@ -20,7 +20,7 @@ class ListApplicationsRoute extends IUserRoute<ListApplicationsRequest, ListAppl
     cxt: RouteContext<ListApplicationsEnv>,
   ): Promise<ListApplicationsResponse> {
     return {
-      applications: await ApplicationService.listUserApplications(this.getAuthenticatedUserEmailAddress(cxt), env, request.raw),
+      applications: await new ApplicationService(env).listUserApplications(this.getAuthenticatedUserEmailAddress(cxt), request.raw),
     };
   }
 }

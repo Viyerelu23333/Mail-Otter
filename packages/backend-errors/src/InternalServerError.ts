@@ -1,6 +1,6 @@
-import { ErrorCode, IServiceError } from './IServiceError';
+import { ErrorCode, ServiceError } from './IServiceError';
 
-class InternalServerError extends IServiceError {
+class InternalServerError extends ServiceError {
   constructor(message?: string | undefined) {
     super(message ?? 'The server encountered an internal error and was unable to complete your request.');
   }

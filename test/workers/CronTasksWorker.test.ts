@@ -49,16 +49,12 @@ vi.mock('@mail-otter/background/scheduled', () => ({
   },
 }));
 
-vi.mock('@mail-otter/backend-services/subscription', async (importOriginal) => {
-  const actual = (await importOriginal()) as typeof import('@mail-otter/backend-services/subscription');
-  return {
-    ...actual,
-    SubscriptionRenewalUtil: {
-      ...actual.SubscriptionRenewalUtil,
-      renewDueSubscriptions: taskSpies.subscriptionRenewal,
-    },
-  };
-});
+vi.mock('@mail-otter/backend-services/subscription', () => ({
+  SubscriptionRenewalUtil: vi.fn(function () {
+    return { renewDueSubscriptions: taskSpies.subscriptionRenewal };
+  }),
+  SubscriptionRenewalFactory: { create: vi.fn() },
+}));
 
 import { CronTasksWorker } from '@mail-otter/background';
 
@@ -118,7 +114,7 @@ describe('CronTasksWorker', () => {
     expect(taskSpies.aiDailyUsagePruning).toHaveBeenCalledOnce();
     expect(taskSpies.emailActionPruning).toHaveBeenCalledOnce();
     expect(taskSpies.auditLogPruning).toHaveBeenCalledOnce();
-    expect(taskSpies.subscriptionRenewal).toHaveBeenCalledWith(expect.objectContaining({ DB: expect.any(Object) }));
+    expect(taskSpies.subscriptionRenewal).toHaveBeenCalledWith();
     expect(taskSpies.oauth2Refresh.mock.invocationCallOrder[0]).toBeLessThan(taskSpies.contextPruning.mock.invocationCallOrder[0]);
     expect(taskSpies.contextPruning.mock.invocationCallOrder[0]).toBeLessThan(taskSpies.processedMessagePruning.mock.invocationCallOrder[0]);
     expect(taskSpies.oauth2Refresh.mock.calls[0][0]).toEqual(

@@ -12,33 +12,33 @@ import { EmailProviderRegistry } from '../provider/EmailProviderRegistry';
 import type { AnyProviderCredentials, WebhookWatchResult } from '../provider/IEmailProvider';
 
 class SubscriptionRenewalUtil {
-  public static async renewDueSubscriptions(env: SubscriptionRenewalEnv): Promise<void> {
+  constructor(private readonly env: SubscriptionRenewalEnv) {}
+
+  async renewDueSubscriptions(): Promise<void> {
     const now: number = TimestampUtil.getCurrentUnixTimestampInSeconds();
-    const gmailWindowHours: number = ConfigurationManager.getGmailWatchRenewalWindowHours(env);
-    const outlookWindowHours: number = ConfigurationManager.getOutlookSubscriptionRenewalWindowHours(env);
+    const gmailWindowHours: number = ConfigurationManager.getGmailWatchRenewalWindowHours(this.env);
+    const outlookWindowHours: number = ConfigurationManager.getOutlookSubscriptionRenewalWindowHours(this.env);
     const maxWindowSeconds: number = Math.max(gmailWindowHours, outlookWindowHours) * 60 * 60;
-    const subscriptionDAO = new ProviderSubscriptionDAO(env.DB);
-    const masterKey: string = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    const applicationDAO = new ConnectedApplicationDAO(env.DB, masterKey);
+    const subscriptionDAO = new ProviderSubscriptionDAO(this.env.DB);
+    const masterKey: string = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    const applicationDAO = new ConnectedApplicationDAO(this.env.DB, masterKey);
     const subscriptions: ProviderSubscription[] = await subscriptionDAO.listActiveRenewalCandidates(now, now + maxWindowSeconds);
     for (const subscription of subscriptions) {
       try {
         if (IMAP_PROVIDERS.has(subscription.providerId)) {
-          // IMAP providers do not expire subscriptions; nothing to renew.
           continue;
         }
         if (subscription.providerId === PROVIDER_GOOGLE_GMAIL && (subscription.expiresAt || 0) <= now + gmailWindowHours * 60 * 60) {
-          await SubscriptionRenewalUtil.renewGmail(subscription, applicationDAO, subscriptionDAO, env);
+          await this.renewGmail(subscription, applicationDAO, subscriptionDAO);
           continue;
         }
-        const windowHours = outlookWindowHours;
-        if ((subscription.expiresAt || 0) <= now + windowHours * 60 * 60) {
-          await SubscriptionRenewalUtil.renewViaInterface(subscription, applicationDAO, subscriptionDAO, env);
+        if ((subscription.expiresAt || 0) <= now + outlookWindowHours * 60 * 60) {
+          await this.renewViaInterface(subscription, applicationDAO, subscriptionDAO);
         }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        const baseDelay = ConfigurationManager.getRenewalRetryBaseDelaySeconds(env);
-        const maxDelay = ConfigurationManager.getRenewalRetryMaxDelaySeconds(env);
+        const baseDelay = ConfigurationManager.getRenewalRetryBaseDelaySeconds(this.env);
+        const maxDelay = ConfigurationManager.getRenewalRetryMaxDelaySeconds(this.env);
         const currentCount = subscription.renewalRetryCount;
         const delay = Math.min(baseDelay * Math.pow(2, currentCount), maxDelay);
         const nextRetryAt = now + delay;
@@ -51,15 +51,14 @@ class SubscriptionRenewalUtil {
     }
   }
 
-  private static async renewGmail(
+  private async renewGmail(
     subscription: ProviderSubscription,
     applicationDAO: ConnectedApplicationDAO,
     subscriptionDAO: ProviderSubscriptionDAO,
-    env: SubscriptionRenewalEnv,
   ): Promise<void> {
     const application: ConnectedApplication | undefined = await applicationDAO.getById(subscription.applicationId);
     if (!application || !application.gmailPubsubTopicName) return;
-    const accessToken: string = await OAuth2AccessTokenService.getAccessToken(application.applicationId, env);
+    const accessToken: string = await new OAuth2AccessTokenService(this.env).getAccessToken(application.applicationId);
     const watch = await GmailProviderUtil.watchInbox(accessToken, application.gmailPubsubTopicName, application.watchedFolders?.map((f) => f.id) ?? undefined);
     await subscriptionDAO.upsertActive({
       applicationId: application.applicationId,
@@ -71,16 +70,15 @@ class SubscriptionRenewalUtil {
     });
   }
 
-  private static async renewViaInterface(
+  private async renewViaInterface(
     subscription: ProviderSubscription,
     applicationDAO: ConnectedApplicationDAO,
     subscriptionDAO: ProviderSubscriptionDAO,
-    env: SubscriptionRenewalEnv,
   ): Promise<void> {
     const application: ConnectedApplication | undefined = await applicationDAO.getById(subscription.applicationId);
     if (!application || !subscription.externalSubscriptionId) return;
-    const credentials = await SubscriptionRenewalUtil.resolveCredentials(application, env);
-    const ttlDays: number = ConfigurationManager.getOutlookSubscriptionTtlDays(env);
+    const credentials = await this.resolveCredentials(application);
+    const ttlDays: number = ConfigurationManager.getOutlookSubscriptionTtlDays(this.env);
     const expiresAt: number = TimestampUtil.addDays(TimestampUtil.getCurrentUnixTimestampInSeconds(), ttlDays);
     const provider = EmailProviderRegistry.get(application.providerId);
     const result = await provider.renewWatch(credentials, subscription.externalSubscriptionId, expiresAt);
@@ -97,7 +95,7 @@ class SubscriptionRenewalUtil {
     }
   }
 
-  private static async resolveCredentials(application: ConnectedApplication, env: SubscriptionRenewalEnv): Promise<AnyProviderCredentials> {
+  private async resolveCredentials(application: ConnectedApplication): Promise<AnyProviderCredentials> {
     if (application.connectionMethod === CONNECTION_METHOD_IMAP_PASSWORD) {
       if (!application.imapHost || !application.imapUsername || !application.imapPassword) {
         throw new Error('IMAP credentials are incomplete.');
@@ -110,8 +108,14 @@ class SubscriptionRenewalUtil {
         port: application.imapPort ?? 993,
       };
     }
-    const accessToken = await OAuth2AccessTokenService.getAccessToken(application.applicationId, env);
+    const accessToken = await new OAuth2AccessTokenService(this.env).getAccessToken(application.applicationId);
     return { type: 'oauth2', accessToken };
+  }
+}
+
+class SubscriptionRenewalFactory {
+  static create(env: SubscriptionRenewalEnv): SubscriptionRenewalUtil {
+    return new SubscriptionRenewalUtil(env);
   }
 }
 
@@ -128,5 +132,5 @@ interface SubscriptionRenewalEnv {
   RENEWAL_RETRY_MAX_DELAY_SECONDS?: string | undefined;
 }
 
-export { SubscriptionRenewalUtil };
+export { SubscriptionRenewalUtil, SubscriptionRenewalFactory };
 export type { SubscriptionRenewalEnv };

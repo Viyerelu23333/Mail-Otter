@@ -24,13 +24,7 @@ class DismissApplicationErrorRoute extends IUserRoute<
     cxt: RouteContext<IUserEnv>,
   ): Promise<DismissApplicationErrorResponse> {
     return {
-      application: await ApplicationService.acknowledgeApplicationError(
-        this.getAuthenticatedUserEmailAddress(cxt),
-        request.applicationId,
-        request.errorType,
-        env,
-        request.raw,
-      ),
+      application: await new ApplicationService(env).acknowledgeApplicationError(this.getAuthenticatedUserEmailAddress(cxt), request.applicationId, request.errorType, request.raw),
     };
   }
 }

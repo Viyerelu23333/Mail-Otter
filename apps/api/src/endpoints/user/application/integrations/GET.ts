@@ -19,11 +19,7 @@ class ListIntegrationsRoute extends IUserRoute<ListIntegrationsRequest, ListInte
     env: ListIntegrationsEnv,
     cxt: RouteContext<ListIntegrationsEnv>,
   ): Promise<ListIntegrationsResponse> {
-    const integrations = await ApplicationService.listIntegrations(
-      this.getAuthenticatedUserEmailAddress(cxt),
-      this.getQueryParam(request, 'applicationId') ?? '',
-      env,
-    );
+    const integrations = await new ApplicationService(env).listIntegrations(this.getAuthenticatedUserEmailAddress(cxt), this.getQueryParam(request, 'applicationId') ?? '');
     return { integrations };
   }
 }

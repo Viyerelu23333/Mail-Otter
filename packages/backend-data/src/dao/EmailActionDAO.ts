@@ -7,7 +7,6 @@ import {
 } from '@mail-otter/shared/constants';
 import { decryptDataWithSalt, encryptDataWithSalt } from '../crypto';
 import { CursorUtil, executeD1WithRetry } from '../utils';
-import type { D1Queryable } from '../utils';
 import type {
   EmailAction,
   EmailActionExecution,
@@ -20,15 +19,9 @@ import type {
 } from '@mail-otter/shared/model';
 import type { EmailActionExecutionTrigger, EmailActionRiskLevel, EmailActionStatus, EmailActionType, ProviderId } from '@mail-otter/shared/constants';
 import { TimestampUtil, UUIDUtil } from '@mail-otter/shared/utils';
+import { EncryptedDAO } from './BaseDAO';
 
-class EmailActionDAO {
-  protected readonly database: D1Queryable;
-  protected readonly masterKey: string;
-
-  constructor(database: D1Queryable, masterKey: string) {
-    this.database = database;
-    this.masterKey = masterKey;
-  }
+class EmailActionDAO extends EncryptedDAO {
 
   public async create(input: CreateEmailActionInput): Promise<EmailAction> {
     const now: number = TimestampUtil.getCurrentUnixTimestampInSeconds();

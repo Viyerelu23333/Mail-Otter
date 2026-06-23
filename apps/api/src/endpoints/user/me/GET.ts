@@ -19,7 +19,7 @@ class GetCurrentUserRoute extends IUserRoute<GetCurrentUserRequest, GetCurrentUs
     env: GetCurrentUserEnv,
     cxt: RouteContext<GetCurrentUserEnv>,
   ): Promise<GetCurrentUserResponse> {
-    const summary = await UserService.getCurrentUserSummary(env);
+    const summary = await new UserService(env).getCurrentUserSummary();
     return {
       email: this.getAuthenticatedUserEmailAddress(cxt),
       ...summary,

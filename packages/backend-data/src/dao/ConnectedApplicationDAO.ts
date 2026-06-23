@@ -8,7 +8,6 @@ import {
 import { decryptData, encryptData } from '../crypto';
 import { DatabaseError } from '@mail-otter/backend-errors';
 import { executeD1WithRetry } from '../utils';
-import type { D1Queryable } from '../utils';
 import type {
   ConnectedApplication,
   ConnectedApplicationCredentials,
@@ -19,15 +18,9 @@ import type {
   SenderDomainFilters,
 } from '@mail-otter/shared/model';
 import { TimestampUtil, TimeZoneUtil, UUIDUtil } from '@mail-otter/shared/utils';
+import { EncryptedDAO } from './BaseDAO';
 
-class ConnectedApplicationDAO {
-  protected readonly database: D1Queryable;
-  protected readonly masterKey: string;
-
-  constructor(database: D1Queryable, masterKey: string) {
-    this.database = database;
-    this.masterKey = masterKey;
-  }
+class ConnectedApplicationDAO extends EncryptedDAO {
 
   public async create(
     userEmail: string,

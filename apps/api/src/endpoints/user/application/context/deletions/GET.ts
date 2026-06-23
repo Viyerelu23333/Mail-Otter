@@ -23,10 +23,7 @@ class ListApplicationContextDeletionRunsRoute extends IUserRoute<
     env: ListApplicationContextDeletionRunsEnv,
     cxt: RouteContext<ListApplicationContextDeletionRunsEnv>,
   ): Promise<ListApplicationContextDeletionRunsResponse> {
-    return ContextService.listDeletionRuns(this.getAuthenticatedUserEmailAddress(cxt), {
-      applicationId: this.getQueryParam(request, 'applicationId'),
-      cursor: this.getQueryParam(request, 'cursor'),
-    }, env);
+    return new ContextService(env).listDeletionRuns(this.getAuthenticatedUserEmailAddress(cxt), { applicationId: this.getQueryParam(request, 'applicationId'), cursor: this.getQueryParam(request, 'cursor') });
   }
 }
 

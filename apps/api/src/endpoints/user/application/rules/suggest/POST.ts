@@ -19,12 +19,7 @@ class SuggestApplicationRuleRoute extends IUserRoute<SuggestApplicationRuleReque
     env: SuggestApplicationRuleEnv,
     cxt: RouteContext<SuggestApplicationRuleEnv>,
   ): Promise<SuggestApplicationRuleResponse> {
-    const rule = await ApplicationService.suggestRule(
-      this.getAuthenticatedUserEmailAddress(cxt),
-      request.applicationId,
-      request.description,
-      env,
-    );
+    const rule = await new ApplicationService(env).suggestRule(this.getAuthenticatedUserEmailAddress(cxt), request.applicationId, request.description);
     return { rule };
   }
 }

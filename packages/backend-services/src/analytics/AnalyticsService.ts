@@ -8,17 +8,14 @@ import { TimestampUtil } from '@mail-otter/shared/utils';
 // and query via the Analytics Engine SQL API. Note: requires a new binding + Cloudflare API
 // token secret, and the dashboard will start empty (no D1 backfill). See plan notes for details.
 class AnalyticsService {
-  public static async getAnalytics(
-    userEmail: string,
-    input: { days: number; applicationId?: string | undefined },
-    env: AnalyticsServiceEnv,
-  ): Promise<AnalyticsResponse> {
-    const { days, applicationId } = input;
+  constructor(private readonly env: AnalyticsServiceEnv) {}
 
-    const masterKey: string = await env.AES_ENCRYPTION_KEY_SECRET.get();
+  async getAnalytics(userEmail: string, input: { days: number; applicationId?: string | undefined }): Promise<AnalyticsResponse> {
+    const { days, applicationId } = input;
+    const masterKey: string = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
 
     if (applicationId) {
-      const app = await new ConnectedApplicationDAO(env.DB, masterKey).getMetadataByIdForUser(applicationId, userEmail);
+      const app = await new ConnectedApplicationDAO(this.env.DB, masterKey).getMetadataByIdForUser(applicationId, userEmail);
       if (!app) throw new BadRequestError('Connected application was not found.');
     }
 
@@ -27,13 +24,13 @@ class AnalyticsService {
     const startDate: string = new Date(sinceUnixSeconds * 1000).toISOString().slice(0, 10);
     const endDate: string = new Date(now * 1000).toISOString().slice(0, 10);
 
-    const actionKey: string = await env.ACTION_ENCRYPTION_KEY_SECRET.get();
+    const actionKey: string = await this.env.ACTION_ENCRYPTION_KEY_SECRET.get();
 
     const [aiRows, processingCounts, actionCounts, contextCounts] = await Promise.all([
-      new AiDailyUsageDAO(env.DB).getByDateRange(startDate, endDate),
-      new ProcessedMessageDAO(env.DB).getStatusCountsByDateRange(sinceUnixSeconds, now, applicationId),
-      new EmailActionDAO(env.DB, actionKey).getCountsByUserAndDateRange(userEmail, sinceUnixSeconds, now, applicationId),
-      new ApplicationContextDAO(env.DB).getCountsByUserEmail(userEmail, applicationId),
+      new AiDailyUsageDAO(this.env.DB).getByDateRange(startDate, endDate),
+      new ProcessedMessageDAO(this.env.DB).getStatusCountsByDateRange(sinceUnixSeconds, now, applicationId),
+      new EmailActionDAO(this.env.DB, actionKey).getCountsByUserAndDateRange(userEmail, sinceUnixSeconds, now, applicationId),
+      new ApplicationContextDAO(this.env.DB).getCountsByUserEmail(userEmail, applicationId),
     ]);
 
     const aiTotal = aiRows.reduce(
@@ -56,6 +53,12 @@ class AnalyticsService {
   }
 }
 
+class AnalyticsServiceFactory {
+  static create(env: AnalyticsServiceEnv): AnalyticsService {
+    return new AnalyticsService(env);
+  }
+}
+
 interface AnalyticsServiceEnv {
   DB: D1Database;
   AES_ENCRYPTION_KEY_SECRET: SecretsStoreSecret;
@@ -72,5 +75,5 @@ interface AnalyticsResponse {
   context: ApplicationContextUserCounts;
 }
 
-export { AnalyticsService };
+export { AnalyticsService, AnalyticsServiceFactory };
 export type { AnalyticsResponse, AnalyticsServiceEnv };

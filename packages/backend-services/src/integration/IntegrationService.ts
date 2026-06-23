@@ -25,12 +25,11 @@ interface EmailSummaryNotification {
 }
 
 class IntegrationService {
-  public static async sendToIntegrations(
-    summaryData: GmailSummaryData | OutlookSummaryData | JmapSummaryData | ImapSummaryData,
-    env: IntegrationServiceEnv,
-  ): Promise<void> {
-    const masterKey = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    const dao = new ApplicationIntegrationDAO(env.DB, masterKey);
+  constructor(private readonly env: IntegrationServiceEnv) {}
+
+  async sendToIntegrations(summaryData: GmailSummaryData | OutlookSummaryData | JmapSummaryData | ImapSummaryData): Promise<void> {
+    const masterKey = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    const dao = new ApplicationIntegrationDAO(this.env.DB, masterKey);
     const integrations = await dao.listEnabled(summaryData.application.applicationId);
     if (integrations.length === 0) return;
 
@@ -54,7 +53,7 @@ class IntegrationService {
       integrations.map(async (integration) => {
         try {
           const webhookUrl = await dao.getDecryptedWebhookUrl(integration.integrationId);
-          await IntegrationService.dispatchToIntegration(integration, webhookUrl, notification);
+          await this.dispatchToIntegration(integration, webhookUrl, notification);
         } catch (error: unknown) {
           console.warn(
             `[IntegrationService] Failed to dispatch to ${integration.integrationType} integration ${integration.integrationId}:`,
@@ -65,12 +64,9 @@ class IntegrationService {
     );
   }
 
-  public static async sendTestNotification(
-    integration: OutboundIntegration,
-    env: IntegrationServiceEnv,
-  ): Promise<void> {
-    const masterKey = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    const dao = new ApplicationIntegrationDAO(env.DB, masterKey);
+  async sendTestNotification(integration: OutboundIntegration): Promise<void> {
+    const masterKey = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    const dao = new ApplicationIntegrationDAO(this.env.DB, masterKey);
     const webhookUrl = await dao.getDecryptedWebhookUrl(integration.integrationId);
 
     const testNotification: EmailSummaryNotification = {
@@ -83,28 +79,24 @@ class IntegrationService {
       processedAt: Math.floor(Date.now() / 1000),
     };
 
-    await IntegrationService.dispatchToIntegration(integration, webhookUrl, testNotification);
+    await this.dispatchToIntegration(integration, webhookUrl, testNotification);
   }
 
-  private static async dispatchToIntegration(
-    integration: OutboundIntegration,
-    webhookUrl: string,
-    notification: EmailSummaryNotification,
-  ): Promise<void> {
+  private async dispatchToIntegration(integration: OutboundIntegration, webhookUrl: string, notification: EmailSummaryNotification): Promise<void> {
     switch (integration.integrationType) {
       case 'slack':
-        await IntegrationService.postJson(webhookUrl, IntegrationService.buildSlackPayload(notification));
+        await this.postJson(webhookUrl, this.buildSlackPayload(notification));
         break;
       case 'discord':
-        await IntegrationService.postJson(webhookUrl, IntegrationService.buildDiscordPayload(notification));
+        await this.postJson(webhookUrl, this.buildDiscordPayload(notification));
         break;
       case 'webhook':
-        await IntegrationService.postJson(webhookUrl, IntegrationService.buildWebhookPayload(notification));
+        await this.postJson(webhookUrl, this.buildWebhookPayload(notification));
         break;
     }
   }
 
-  private static async postJson(url: string, payload: unknown): Promise<void> {
+  private async postJson(url: string, payload: unknown): Promise<void> {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -116,7 +108,7 @@ class IntegrationService {
     }
   }
 
-  private static buildSlackPayload(n: EmailSummaryNotification): unknown {
+  private buildSlackPayload(n: EmailSummaryNotification): unknown {
     const blocks: unknown[] = [
       {
         type: 'header',
@@ -136,18 +128,13 @@ class IntegrationService {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*Key Details:*\n${n.keyDetails
-            .slice(0, 10)
-            .map((d) => `• ${d}`)
-            .join('\n')}`,
+          text: `*Key Details:*\n${n.keyDetails.slice(0, 10).map((d) => `• ${d}`).join('\n')}`,
         },
       });
     }
 
     if (n.actions.length > 0) {
-      const actionText = n.actions
-        .map((a) => `• <${a.callbackUrl}|${a.title}> _(${a.type.replace('.', ' ')})_`)
-        .join('\n');
+      const actionText = n.actions.map((a) => `• <${a.callbackUrl}|${a.title}> _(${a.type.replace('.', ' ')})_`).join('\n');
       blocks.push({
         type: 'section',
         text: { type: 'mrkdwn', text: `*Suggested Actions:*\n${actionText}` },
@@ -162,17 +149,13 @@ class IntegrationService {
     return { blocks };
   }
 
-  private static buildDiscordPayload(n: EmailSummaryNotification): unknown {
+  private buildDiscordPayload(n: EmailSummaryNotification): unknown {
     const fields: unknown[] = [{ name: 'From', value: n.emailFrom || '(unknown)', inline: true }];
 
     if (n.keyDetails.length > 0) {
       fields.push({
         name: 'Key Details',
-        value: n.keyDetails
-          .slice(0, 10)
-          .map((d) => `• ${d}`)
-          .join('\n')
-          .slice(0, 1024),
+        value: n.keyDetails.slice(0, 10).map((d) => `• ${d}`).join('\n').slice(0, 1024),
         inline: false,
       });
     }
@@ -180,10 +163,7 @@ class IntegrationService {
     if (n.actions.length > 0) {
       fields.push({
         name: 'Suggested Actions',
-        value: n.actions
-          .map((a) => `[${a.title}](${a.callbackUrl})`)
-          .join('\n')
-          .slice(0, 1024),
+        value: n.actions.map((a) => `[${a.title}](${a.callbackUrl})`).join('\n').slice(0, 1024),
         inline: false,
       });
     }
@@ -201,7 +181,7 @@ class IntegrationService {
     };
   }
 
-  private static buildWebhookPayload(n: EmailSummaryNotification): unknown {
+  private buildWebhookPayload(n: EmailSummaryNotification): unknown {
     return {
       event: 'email.processed',
       applicationId: n.applicationId,
@@ -219,5 +199,11 @@ class IntegrationService {
   }
 }
 
-export { IntegrationService };
+class IntegrationServiceFactory {
+  static create(env: IntegrationServiceEnv): IntegrationService {
+    return new IntegrationService(env);
+  }
+}
+
+export { IntegrationService, IntegrationServiceFactory };
 export type { IntegrationServiceEnv };

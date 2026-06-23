@@ -19,16 +19,7 @@ class CreateIntegrationRoute extends IUserRoute<CreateIntegrationRequest, Create
     env: CreateIntegrationEnv,
     cxt: RouteContext<CreateIntegrationEnv>,
   ): Promise<CreateIntegrationResponse> {
-    const integration = await ApplicationService.createIntegration(
-      this.getAuthenticatedUserEmailAddress(cxt),
-      {
-        applicationId: request.applicationId,
-        integrationType: request.integrationType,
-        name: request.name,
-        webhookUrl: request.webhookUrl,
-      },
-      env,
-    );
+    const integration = await new ApplicationService(env).createIntegration(this.getAuthenticatedUserEmailAddress(cxt), { applicationId: request.applicationId, integrationType: request.integrationType, name: request.name, webhookUrl: request.webhookUrl });
     return { integration };
   }
 }

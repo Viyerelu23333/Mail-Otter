@@ -23,31 +23,27 @@ import { EmailRuleSuggestionUtil } from '../email/EmailRuleSuggestionUtil';
 import { AiUsageUtil } from '../email/AiUsageUtil';
 import type { AiTextGenerationUsage } from '../email/WorkersAiResponseUtil';
 import { IntegrationService } from '../integration/IntegrationService';
-import type { IntegrationServiceEnv } from '../integration/IntegrationService';
 import { WatchService } from '../subscription/WatchService';
 import type { WatchServiceEnv } from '../subscription/WatchService';
 import { ApplicationResponseUtil } from './ApplicationResponseUtil';
 import type { ApplicationResponse } from './ApplicationResponseUtil';
 
 class ApplicationService {
-  public static async listUserApplications(userEmail: string, env: ApplicationServiceEnv, raw: Request): Promise<ApplicationResponse[]> {
-    const applicationDAO: ConnectedApplicationDAO = await ApplicationService.createApplicationDAO(env);
+  constructor(private readonly env: ApplicationServiceEnv) {}
+
+  async listUserApplications(userEmail: string, raw: Request): Promise<ApplicationResponse[]> {
+    const applicationDAO: ConnectedApplicationDAO = await this.createApplicationDAO();
     const applications: ConnectedApplicationMetadata[] = await applicationDAO.listMetadataByUserEmail(userEmail);
     return Promise.all(
       applications.map(async (application: ConnectedApplicationMetadata): Promise<ApplicationResponse> => {
-        return ApplicationResponseUtil.decorateApplication(application, env, raw);
+        return ApplicationResponseUtil.decorateApplication(application, this.env, raw);
       }),
     );
   }
 
-  public static async createUserApplication(
-    userEmail: string,
-    input: CreateUserApplicationInput,
-    env: ApplicationServiceEnv,
-    raw: Request,
-  ): Promise<ApplicationResponse> {
-    const applicationDAO: ConnectedApplicationDAO = await ApplicationService.createApplicationDAO(env);
-    const maxApplications: number = ConfigurationManager.getMaxApplicationsPerUser(env);
+  async createUserApplication(userEmail: string, input: CreateUserApplicationInput, raw: Request): Promise<ApplicationResponse> {
+    const applicationDAO: ConnectedApplicationDAO = await this.createApplicationDAO();
+    const maxApplications: number = ConfigurationManager.getMaxApplicationsPerUser(this.env);
     if ((await applicationDAO.countByUserEmail(userEmail)) >= maxApplications) {
       throw new BadRequestError(`Maximum ${maxApplications} connected applications allowed per user.`);
     }
@@ -78,16 +74,11 @@ class ApplicationService {
       input.timeZone || null,
       imapConfig,
     );
-    return ApplicationResponseUtil.decorateApplication(application, env, raw);
+    return ApplicationResponseUtil.decorateApplication(application, this.env, raw);
   }
 
-  public static async updateUserApplication(
-    userEmail: string,
-    input: UpdateUserApplicationInput,
-    env: ApplicationServiceEnv,
-    raw: Request,
-  ): Promise<ApplicationResponse> {
-    const applicationDAO: ConnectedApplicationDAO = await ApplicationService.createApplicationDAO(env);
+  async updateUserApplication(userEmail: string, input: UpdateUserApplicationInput, raw: Request): Promise<ApplicationResponse> {
+    const applicationDAO: ConnectedApplicationDAO = await this.createApplicationDAO();
     const existing: ConnectedApplication | undefined = await applicationDAO.getByIdForUser(input.applicationId, userEmail);
     if (!existing) {
       throw new BadRequestError('Connected application was not found.');
@@ -140,167 +131,118 @@ class ApplicationService {
     if (!application) {
       throw new BadRequestError('Connected application was not found.');
     }
-    return ApplicationResponseUtil.decorateApplication(application, env, raw);
+    return ApplicationResponseUtil.decorateApplication(application, this.env, raw);
   }
 
-  public static async updateWatchedFolderIds(
-    userEmail: string,
-    input: UpdateWatchedFolderIdsInput,
-    env: ApplicationServiceEnv,
-    raw: Request,
-  ): Promise<ApplicationResponse> {
-    const applicationDAO: ConnectedApplicationDAO = await ApplicationService.createApplicationDAO(env);
+  async updateWatchedFolderIds(userEmail: string, input: UpdateWatchedFolderIdsInput, raw: Request): Promise<ApplicationResponse> {
+    const applicationDAO: ConnectedApplicationDAO = await this.createApplicationDAO();
     const application: ConnectedApplicationMetadata | undefined = await applicationDAO.updateWatchedFolderIdsForUser(
-      input.applicationId,
-      userEmail,
-      input.folderIds,
-      input.folderNames,
+      input.applicationId, userEmail, input.folderIds, input.folderNames,
     );
     if (!application) {
       throw new BadRequestError('Connected application was not found.');
     }
-    return ApplicationResponseUtil.decorateApplication(application, env, raw);
+    return ApplicationResponseUtil.decorateApplication(application, this.env, raw);
   }
 
-  public static async deleteUserApplication(userEmail: string, applicationId: string, env: DeleteUserApplicationEnv): Promise<void> {
+  async deleteUserApplication(userEmail: string, applicationId: string): Promise<void> {
     try {
-      await WatchService.stopApplicationWatch(userEmail, applicationId, env);
+      await new WatchService(this.env as WatchServiceEnv).stopApplicationWatch(userEmail, applicationId);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       console.warn(`[ApplicationService] Stop watch failed during application deletion, proceeding: ${message}`);
     }
 
-    const masterKey: string = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    const applicationDAO = new ConnectedApplicationDAO(env.DB, masterKey);
-    const contextDAO = new ApplicationContextDAO(env.DB);
+    const masterKey: string = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    const applicationDAO = new ConnectedApplicationDAO(this.env.DB, masterKey);
+    const contextDAO = new ApplicationContextDAO(this.env.DB);
     const vectorIds: string[] = await contextDAO.listActiveVectorIdsForApplication(applicationId, userEmail);
-    if (env.EMAIL_CONTEXT_INDEX) {
+    if (this.env.EMAIL_CONTEXT_INDEX) {
       for (const chunk of EmailContextUtil.chunk(vectorIds, 1000)) {
-        if (chunk.length > 0) await env.EMAIL_CONTEXT_INDEX.deleteByIds(chunk);
+        if (chunk.length > 0) await this.env.EMAIL_CONTEXT_INDEX.deleteByIds(chunk);
       }
       await contextDAO.markDocumentsDeletedByVectorIds(applicationId, userEmail, vectorIds);
     }
-    await new OAuth2AccessTokenCacheDAO(env.OAUTH2_TOKEN_CACHE, masterKey).deleteAccessToken(applicationId);
+    if (this.env.OAUTH2_TOKEN_CACHE) {
+      await new OAuth2AccessTokenCacheDAO(this.env.OAUTH2_TOKEN_CACHE, masterKey).deleteAccessToken(applicationId);
+    }
     await applicationDAO.deleteForUser(applicationId, userEmail);
   }
 
-  public static async acknowledgeApplicationError(
-    userEmail: string,
-    applicationId: string,
-    errorType: 'processing' | 'context',
-    env: ApplicationServiceEnv,
-    raw: Request,
-  ): Promise<ApplicationResponse> {
-    const applicationDAO: ConnectedApplicationDAO = await ApplicationService.createApplicationDAO(env);
+  async acknowledgeApplicationError(userEmail: string, applicationId: string, errorType: 'processing' | 'context', raw: Request): Promise<ApplicationResponse> {
+    const applicationDAO: ConnectedApplicationDAO = await this.createApplicationDAO();
     const application: ConnectedApplicationMetadata | undefined = await applicationDAO.acknowledgeErrorForUser(applicationId, userEmail, errorType);
     if (!application) {
       throw new BadRequestError('Connected application was not found.');
     }
-    return ApplicationResponseUtil.decorateApplication(application, env, raw);
+    return ApplicationResponseUtil.decorateApplication(application, this.env, raw);
   }
 
-  public static async listIntegrations(
-    userEmail: string,
-    applicationId: string,
-    env: IntegrationServiceEnv,
-  ): Promise<OutboundIntegration[]> {
-    await ApplicationService.assertApplicationOwnership(userEmail, applicationId, env);
-    const masterKey = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    return new ApplicationIntegrationDAO(env.DB, masterKey).listByApplicationId(applicationId);
+  async listIntegrations(userEmail: string, applicationId: string): Promise<OutboundIntegration[]> {
+    await this.assertApplicationOwnership(userEmail, applicationId);
+    const masterKey = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    return new ApplicationIntegrationDAO(this.env.DB, masterKey).listByApplicationId(applicationId);
   }
 
-  public static async createIntegration(
-    userEmail: string,
-    input: CreateIntegrationInput,
-    env: IntegrationServiceEnv,
-  ): Promise<OutboundIntegration> {
-    await ApplicationService.assertApplicationOwnership(userEmail, input.applicationId, env);
-    const masterKey = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    return new ApplicationIntegrationDAO(env.DB, masterKey).create(
-      input.applicationId,
-      input.integrationType,
-      input.name,
-      input.webhookUrl,
+  async createIntegration(userEmail: string, input: CreateIntegrationInput): Promise<OutboundIntegration> {
+    await this.assertApplicationOwnership(userEmail, input.applicationId);
+    const masterKey = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    return new ApplicationIntegrationDAO(this.env.DB, masterKey).create(
+      input.applicationId, input.integrationType, input.name, input.webhookUrl,
     );
   }
 
-  public static async updateIntegration(
-    userEmail: string,
-    input: UpdateIntegrationInput,
-    env: IntegrationServiceEnv,
-  ): Promise<OutboundIntegration> {
-    const masterKey = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    const dao = new ApplicationIntegrationDAO(env.DB, masterKey);
+  async updateIntegration(userEmail: string, input: UpdateIntegrationInput): Promise<OutboundIntegration> {
+    const masterKey = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    const dao = new ApplicationIntegrationDAO(this.env.DB, masterKey);
     const existing = await dao.getByIdForUser(input.integrationId, userEmail);
     if (!existing) throw new BadRequestError('Integration not found.');
-    return dao.update(input.integrationId, {
-      name: input.name,
-      enabled: input.enabled,
-      webhookUrl: input.webhookUrl,
-    });
+    return dao.update(input.integrationId, { name: input.name, enabled: input.enabled, webhookUrl: input.webhookUrl });
   }
 
-  public static async deleteIntegration(
-    userEmail: string,
-    integrationId: string,
-    env: IntegrationServiceEnv,
-  ): Promise<void> {
-    const masterKey = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    const dao = new ApplicationIntegrationDAO(env.DB, masterKey);
+  async deleteIntegration(userEmail: string, integrationId: string): Promise<void> {
+    const masterKey = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    const dao = new ApplicationIntegrationDAO(this.env.DB, masterKey);
     const existing = await dao.getByIdForUser(integrationId, userEmail);
     if (!existing) throw new BadRequestError('Integration not found.');
     await dao.deleteById(integrationId);
   }
 
-  public static async testIntegration(
-    userEmail: string,
-    integrationId: string,
-    env: IntegrationServiceEnv,
-  ): Promise<void> {
-    const masterKey = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    const dao = new ApplicationIntegrationDAO(env.DB, masterKey);
+  async testIntegration(userEmail: string, integrationId: string): Promise<void> {
+    const masterKey = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    const dao = new ApplicationIntegrationDAO(this.env.DB, masterKey);
     const integration = await dao.getByIdForUser(integrationId, userEmail);
     if (!integration) throw new BadRequestError('Integration not found.');
-    await IntegrationService.sendTestNotification(integration, env);
+    await new IntegrationService(this.env).sendTestNotification(integration);
   }
 
-  public static async getRules(userEmail: string, applicationId: string, env: ApplicationServiceEnv): Promise<EmailProcessingRule[]> {
-    await ApplicationService.assertApplicationOwnership(userEmail, applicationId, env);
-    const masterKey = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    const dao = new ConnectedApplicationDAO(env.DB, masterKey);
+  async getRules(userEmail: string, applicationId: string): Promise<EmailProcessingRule[]> {
+    await this.assertApplicationOwnership(userEmail, applicationId);
+    const masterKey = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    const dao = new ConnectedApplicationDAO(this.env.DB, masterKey);
     const app = await dao.getMetadataByIdForUser(applicationId, userEmail);
     return app?.emailProcessingRules ?? [];
   }
 
-  public static async updateRules(
-    userEmail: string,
-    applicationId: string,
-    rules: EmailProcessingRule[],
-    env: ApplicationServiceEnv,
-  ): Promise<ConnectedApplicationMetadata> {
-    await ApplicationService.assertApplicationOwnership(userEmail, applicationId, env);
-    const masterKey = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    const dao = new ConnectedApplicationDAO(env.DB, masterKey);
+  async updateRules(userEmail: string, applicationId: string, rules: EmailProcessingRule[]): Promise<ConnectedApplicationMetadata> {
+    await this.assertApplicationOwnership(userEmail, applicationId);
+    const masterKey = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    const dao = new ConnectedApplicationDAO(this.env.DB, masterKey);
     const updated = await dao.updateEmailProcessingRulesForUser(applicationId, userEmail, rules);
     if (!updated) throw new BadRequestError('Connected application not found.');
     return updated;
   }
 
-  public static async suggestRule(
-    userEmail: string,
-    applicationId: string,
-    description: string,
-    env: SuggestRuleEnv,
-  ): Promise<Omit<EmailProcessingRule, 'ruleId'>> {
-    await ApplicationService.assertApplicationOwnership(userEmail, applicationId, env);
-    const model = ConfigurationManager.getEmailSummaryModel(env);
-    const { rule, usage } = await EmailRuleSuggestionUtil.suggestWithUsage(env.AI, model, description);
-    await ApplicationService.recordRuleSuggestionUsage(env, model, usage, description, rule);
+  async suggestRule(userEmail: string, applicationId: string, description: string): Promise<Omit<EmailProcessingRule, 'ruleId'>> {
+    if (!this.env.AI) throw new BadRequestError('AI is not configured.');
+    await this.assertApplicationOwnership(userEmail, applicationId);
+    const model = ConfigurationManager.getEmailSummaryModel(this.env);
+    const { rule, usage } = await EmailRuleSuggestionUtil.suggestWithUsage(this.env.AI, model, description);
+    await this.recordRuleSuggestionUsage(model, usage, description, rule);
     return rule;
   }
 
-  private static async recordRuleSuggestionUsage(
-    env: SuggestRuleEnv,
+  private async recordRuleSuggestionUsage(
     model: string,
     usage: AiTextGenerationUsage | undefined,
     description: string,
@@ -308,7 +250,7 @@ class ApplicationService {
   ): Promise<void> {
     try {
       const estimate = AiUsageUtil.estimateTextGenerationUsage(model, usage, description, JSON.stringify(rule));
-      await new AiDailyUsageDAO(env.DB).incrementUsage({
+      await new AiDailyUsageDAO(this.env.DB).incrementUsage({
         usageDate: AiUsageUtil.getCurrentUtcUsageDate(),
         estimatedNeurons: estimate.estimatedNeurons,
         promptTokens: estimate.promptTokens,
@@ -319,20 +261,22 @@ class ApplicationService {
     }
   }
 
-  private static async assertApplicationOwnership(
-    userEmail: string,
-    applicationId: string,
-    env: { DB: D1Queryable; AES_ENCRYPTION_KEY_SECRET: SecretsStoreSecret },
-  ): Promise<void> {
-    const masterKey = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    const dao = new ConnectedApplicationDAO(env.DB, masterKey);
+  private async assertApplicationOwnership(userEmail: string, applicationId: string): Promise<void> {
+    const masterKey = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    const dao = new ConnectedApplicationDAO(this.env.DB, masterKey);
     const app = await dao.getMetadataByIdForUser(applicationId, userEmail);
     if (!app) throw new BadRequestError('Connected application not found.');
   }
 
-  private static async createApplicationDAO(env: ApplicationServiceEnv): Promise<ConnectedApplicationDAO> {
-    const masterKey: string = await env.AES_ENCRYPTION_KEY_SECRET.get();
-    return new ConnectedApplicationDAO(env.DB, masterKey);
+  private async createApplicationDAO(): Promise<ConnectedApplicationDAO> {
+    const masterKey: string = await this.env.AES_ENCRYPTION_KEY_SECRET.get();
+    return new ConnectedApplicationDAO(this.env.DB, masterKey);
+  }
+}
+
+class ApplicationServiceFactory {
+  static create(env: ApplicationServiceEnv): ApplicationService {
+    return new ApplicationService(env);
   }
 }
 
@@ -359,21 +303,6 @@ interface UpdateUserApplicationInput extends CreateUserApplicationInput {
   connectionMethod: string;
 }
 
-interface ApplicationServiceEnv {
-  DB: D1Queryable;
-  AES_ENCRYPTION_KEY_SECRET: SecretsStoreSecret;
-  MAX_APPLICATIONS_PER_USER?: string | undefined;
-}
-
-interface SuggestRuleEnv extends ApplicationServiceEnv {
-  AI: Ai;
-  AI_SUMMARY_MODEL?: string | undefined;
-}
-
-interface DeleteUserApplicationEnv extends ApplicationServiceEnv, WatchServiceEnv {
-  EMAIL_CONTEXT_INDEX?: Vectorize | undefined;
-}
-
 interface UpdateWatchedFolderIdsInput {
   applicationId: string;
   folderIds: string[] | null;
@@ -394,13 +323,25 @@ interface UpdateIntegrationInput {
   webhookUrl?: string | undefined;
 }
 
-export { ApplicationService };
+interface ApplicationServiceEnv {
+  DB: D1Queryable;
+  AES_ENCRYPTION_KEY_SECRET: SecretsStoreSecret;
+  OAUTH2_TOKEN_CACHE?: KVNamespace | undefined;
+  OAUTH2_TOKEN_REFRESHERS?: DurableObjectNamespace | undefined;
+  EMAIL_CONTEXT_INDEX?: Vectorize | undefined;
+  AI?: Ai | undefined;
+  MAX_APPLICATIONS_PER_USER?: string | undefined;
+  OAUTH2_ACCESS_TOKEN_MIN_VALID_SECONDS?: string | undefined;
+  OUTLOOK_SUBSCRIPTION_TTL_DAYS?: string | undefined;
+  AI_SUMMARY_MODEL?: string | undefined;
+}
+
+export { ApplicationService, ApplicationServiceFactory };
 export type {
   ApplicationServiceEnv,
+  ApplicationResponse,
   CreateIntegrationInput,
   CreateUserApplicationInput,
-  DeleteUserApplicationEnv,
-  SuggestRuleEnv,
   UpdateIntegrationInput,
   UpdateUserApplicationInput,
   UpdateWatchedFolderIdsInput,

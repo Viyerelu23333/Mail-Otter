@@ -1,0 +1,175 @@
+import {
+  EMAIL_ACTION_STATUS_EXPIRED,
+  EMAIL_ACTION_STATUS_FAILED,
+  EMAIL_ACTION_STATUS_SUCCEEDED,
+  EMAIL_ACTION_TRIGGER_EMAIL_CALLBACK,
+  EMAIL_ACTION_TRIGGER_WEB_UI,
+  EMAIL_ACTION_TYPE_CALENDAR_ADD_EVENT,
+  EMAIL_ACTION_TYPE_EMAIL_DRAFT_REPLY,
+  EMAIL_ACTION_TYPE_EXTERNAL_OPEN_LINK,
+  EMAIL_ACTION_TYPE_MANUAL_TODO,
+} from '@mail-otter/shared/constants';
+import { ConnectedApplicationDAO } from '@mail-otter/backend-data/dao';
+import { BadRequestError } from '@mail-otter/backend-errors';
+import { CryptoUtil, TimestampUtil } from '@mail-otter/shared/utils';
+import type {
+  CalendarAddEventActionPayload,
+  ConnectedApplication,
+  EmailAction,
+  EmailDraftReplyActionPayload,
+  EmailActionResult,
+  ExternalOpenLinkActionPayload,
+} from '@mail-otter/shared/model';
+import { EmailProviderRegistry } from '../provider/EmailProviderRegistry';
+import { OAuth2AccessTokenService } from '../oauth2/OAuth2AccessTokenService';
+import { createActionDAO, hashToken } from './ActionServiceUtils';
+import type { ActionCreationEnv } from './ActionCreationService';
+import { renderConfirmationPage, renderMessagePage, renderResultPage } from './ActionRenderService';
+
+interface ActionHtmlResponse {
+  statusCode: number;
+  html: string;
+}
+
+interface ActionExecutionEnv extends ActionCreationEnv {
+  AES_ENCRYPTION_KEY_SECRET: SecretsStoreSecret;
+  OAUTH2_TOKEN_CACHE: KVNamespace;
+  OAUTH2_TOKEN_REFRESHERS: DurableObjectNamespace;
+  OAUTH2_ACCESS_TOKEN_MIN_VALID_SECONDS?: string | undefined;
+}
+
+type ActionCallbackEnv = ActionExecutionEnv;
+type UserActionEnv = ActionExecutionEnv;
+
+async function getActionForToken(actionId: string, token: string, env: ActionCallbackEnv): Promise<EmailAction | undefined> {
+  const tokenHash: string = await hashToken(actionId, token, await env.ACTION_SIGNING_SECRET.get());
+  return (await createActionDAO(env)).getByTokenHash(actionId, tokenHash);
+}
+
+async function hashUserAgent(request: Request, env: ActionExecutionEnv): Promise<string | null> {
+  const userAgent: string = request.headers.get('User-Agent')?.trim() || '';
+  if (!userAgent) return null;
+  return CryptoUtil.hmacSha256Hex(`email-action-user-agent\n${userAgent}`, await env.ACTION_SIGNING_SECRET.get());
+}
+
+async function executeCalendarAction(action: EmailAction, accessToken: string): Promise<EmailActionResult> {
+  const payload = action.payload as CalendarAddEventActionPayload;
+  return EmailProviderRegistry.get(action.providerId).createCalendarEvent(accessToken, payload);
+}
+
+async function executeDraftReplyAction(
+  action: EmailAction,
+  accessToken: string,
+  application: ConnectedApplication,
+): Promise<EmailActionResult> {
+  const payload = action.payload as EmailDraftReplyActionPayload;
+  const fromEmail = application.providerEmail || application.userEmail;
+  return EmailProviderRegistry.get(action.providerId).createDraftReply(accessToken, action.providerMessageId, fromEmail, payload);
+}
+
+async function executeProviderOperation(action: EmailAction, env: ActionExecutionEnv): Promise<EmailActionResult> {
+  if (action.actionType === EMAIL_ACTION_TYPE_EXTERNAL_OPEN_LINK) {
+    const payload = action.payload as ExternalOpenLinkActionPayload;
+    return { summary: 'External link reviewed.', externalUrl: payload.url, providerUrl: payload.url };
+  }
+  if (action.actionType === EMAIL_ACTION_TYPE_MANUAL_TODO) {
+    return { summary: 'Manual action acknowledged.' };
+  }
+
+  const applicationDAO = new ConnectedApplicationDAO(env.DB, await env.AES_ENCRYPTION_KEY_SECRET.get());
+  const application: ConnectedApplication | undefined = await applicationDAO.getById(action.applicationId);
+  if (!application) throw new BadRequestError('Connected application was not found.');
+  const accessToken: string = await new OAuth2AccessTokenService(env).getAccessToken(application.applicationId, { forceRefresh: true });
+
+  if (action.actionType === EMAIL_ACTION_TYPE_CALENDAR_ADD_EVENT) {
+    return executeCalendarAction(action, accessToken);
+  }
+  if (action.actionType === EMAIL_ACTION_TYPE_EMAIL_DRAFT_REPLY) {
+    return executeDraftReplyAction(action, accessToken, application);
+  }
+  throw new BadRequestError('Unsupported email action type.');
+}
+
+async function executeAction(
+  action: EmailAction,
+  triggeredBy: typeof EMAIL_ACTION_TRIGGER_EMAIL_CALLBACK | typeof EMAIL_ACTION_TRIGGER_WEB_UI,
+  request: Request,
+  env: ActionExecutionEnv,
+): Promise<EmailAction> {
+  const actionDAO = await createActionDAO(env);
+  const now: number = TimestampUtil.getCurrentUnixTimestampInSeconds();
+  const userAgentHash: string | null = await hashUserAgent(request, env);
+
+  if (
+    action.status === EMAIL_ACTION_STATUS_SUCCEEDED ||
+    action.status === EMAIL_ACTION_STATUS_FAILED ||
+    action.status === EMAIL_ACTION_STATUS_EXPIRED
+  ) {
+    return action;
+  }
+  if (action.expiresAt <= now) {
+    await actionDAO.markExpired(action.actionId);
+    await actionDAO.recordExecution({
+      actionId: action.actionId,
+      triggeredBy,
+      status: EMAIL_ACTION_STATUS_EXPIRED,
+      requestUserAgentHash: userAgentHash,
+    });
+    return (await actionDAO.getForUser(action.actionId, action.userEmail)) ?? { ...action, status: EMAIL_ACTION_STATUS_EXPIRED };
+  }
+
+  const claimed: boolean = await actionDAO.claimForExecution(action.actionId);
+  if (!claimed) return action;
+
+  try {
+    const result: EmailActionResult = await executeProviderOperation(action, env);
+    await actionDAO.markSucceeded(action.actionId, result);
+    await actionDAO.recordExecution({
+      actionId: action.actionId,
+      triggeredBy,
+      status: EMAIL_ACTION_STATUS_SUCCEEDED,
+      providerOperationId: result.providerOperationId,
+      requestUserAgentHash: userAgentHash,
+    });
+  } catch (error: unknown) {
+    const message: string = error instanceof Error ? error.message : String(error);
+    await actionDAO.markFailed(action.actionId, message);
+    await actionDAO.recordExecution({
+      actionId: action.actionId,
+      triggeredBy,
+      status: EMAIL_ACTION_STATUS_FAILED,
+      requestUserAgentHash: userAgentHash,
+      errorMessage: message,
+    });
+  }
+
+  const refreshed: EmailAction | undefined = await actionDAO.getForUser(action.actionId, action.userEmail);
+  return refreshed ?? action;
+}
+
+async function getConfirmationResponse(actionId: string, token: string, env: ActionCallbackEnv): Promise<ActionHtmlResponse> {
+  const action: EmailAction | undefined = await getActionForToken(actionId, token, env);
+  if (!action) {
+    return { statusCode: 404, html: renderMessagePage('Action not found', 'This action link is invalid or has expired.') };
+  }
+  return { statusCode: 200, html: renderConfirmationPage(action, token) };
+}
+
+async function executeActionWithToken(actionId: string, token: string, request: Request, env: ActionCallbackEnv): Promise<ActionHtmlResponse> {
+  const action: EmailAction | undefined = await getActionForToken(actionId, token, env);
+  if (!action) {
+    return { statusCode: 404, html: renderMessagePage('Action not found', 'This action link is invalid or has expired.') };
+  }
+  const result: EmailAction = await executeAction(action, EMAIL_ACTION_TRIGGER_EMAIL_CALLBACK, request, env);
+  return { statusCode: 200, html: renderResultPage(result) };
+}
+
+async function executeActionForUser(actionId: string, userEmail: string, request: Request, env: UserActionEnv): Promise<EmailAction> {
+  const actionDAO = await createActionDAO(env);
+  const action: EmailAction | undefined = await actionDAO.getForUser(actionId, userEmail);
+  if (!action) throw new BadRequestError('Email action was not found.');
+  return executeAction(action, EMAIL_ACTION_TRIGGER_WEB_UI, request, env);
+}
+
+export type { ActionHtmlResponse, ActionCallbackEnv, ActionExecutionEnv, UserActionEnv };
+export { getConfirmationResponse, executeActionWithToken, executeActionForUser, executeAction };

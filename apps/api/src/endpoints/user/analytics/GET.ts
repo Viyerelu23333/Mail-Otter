@@ -22,7 +22,7 @@ class GetAnalyticsRoute extends IUserRoute<GetAnalyticsRequest, GetAnalyticsResp
     const days: number = Math.min(Math.max(daysParam ? (parseInt(daysParam, 10) || 30) : 30, 1), 365);
     const applicationId: string | undefined = this.getQueryParam(request, 'applicationId');
 
-    return AnalyticsService.getAnalytics(userEmail, { days, applicationId }, env);
+    return new AnalyticsService(env).getAnalytics(userEmail, { days, applicationId });
   }
 }
 
