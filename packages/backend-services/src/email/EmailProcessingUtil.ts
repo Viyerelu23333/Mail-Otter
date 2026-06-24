@@ -336,7 +336,7 @@ class EmailProcessingUtil {
       const summaryRfc2822 = [
         `From: ${data.application.providerEmail ?? data.application.userEmail}`,
         `To: ${data.application.providerEmail ?? data.application.userEmail}`,
-        `Subject: [Mail Otter Summary] ${data.emailSubject}`,
+        `Subject: [Mail-Otter Summary] ${data.emailSubject}`,
         `X-Mail-Otter-Summary: true`,
         `Content-Type: text/html; charset=utf-8`,
         '',

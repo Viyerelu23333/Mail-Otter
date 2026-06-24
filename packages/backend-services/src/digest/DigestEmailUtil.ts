@@ -36,13 +36,13 @@ class DigestEmailUtil {
       month: 'long',
       day: 'numeric',
     }).format(date);
-    return `Mail Otter Daily Digest — ${localDate}`;
+    return `Mail-Otter Daily Digest — ${localDate}`;
   }
 
   public static buildHtml(sections: DigestSections, enabledSections: string[]): string {
     const parts: string[] = [
       '<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#1a1a1a">',
-      '<h1 style="font-size:20px;font-weight:700;margin:0 0 4px">Mail Otter Daily Digest</h1>',
+      '<h1 style="font-size:20px;font-weight:700;margin:0 0 4px">Mail-Otter Daily Digest</h1>',
       '<p style="font-size:13px;color:#666;margin:0 0 24px">Your actionable items for today.</p>',
     ];
 
@@ -79,7 +79,7 @@ class DigestEmailUtil {
 
     parts.push(
       '<p style="font-size:11px;color:#999;margin-top:32px;border-top:1px solid #eee;padding-top:12px">',
-      'Sent by <strong>Mail Otter</strong>. Manage your digest settings in the Mail Otter dashboard.',
+      'Sent by <strong>Mail-Otter</strong>. Manage your digest settings in the Mail-Otter dashboard.',
       '</p>',
       '</div>',
     );
