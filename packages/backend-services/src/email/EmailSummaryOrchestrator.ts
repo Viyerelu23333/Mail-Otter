@@ -19,10 +19,12 @@ interface EmailProcessingSummary {
   html: string;
   actionProposals: EmailActionProposal[];
   rawSummary: { gist: string; keyDetails: string[] };
+  summaryModel: string;
 }
 
 interface OrchestrationResult {
   summaryHtml: string;
+  summaryModel: string;
   actions: CreatedEmailAction[];
   rawSummary: { gist: string; keyDetails: string[] };
 }
@@ -91,7 +93,7 @@ class EmailSummaryOrchestrator {
       sourceDocumentId: resolvedMessageId, sourceThreadId: threadId,
     });
     const summary: EmailProcessingSummary = await this.summarize(application, subject, from, body, ragContext, customInstruction);
-    await this.auditLogger.logSummaryGenerated(application, resolvedMessageId, options.retryAttempt);
+    await this.auditLogger.logSummaryGenerated(application, resolvedMessageId, summary.summaryModel, options.retryAttempt);
     const processedMessage = await this.processedDAO.getByMessageId(application.applicationId, resolvedMessageId);
     const actions: CreatedEmailAction[] = !suppressActions && processedMessage
       ? await ActionService.createActionsForSummary(
@@ -105,7 +107,7 @@ class EmailSummaryOrchestrator {
     if (application.autoExecuteActionTypes?.length && actions.length) {
       await ActionService.autoExecuteCreatedActions(application.autoExecuteActionTypes, actions, this.env as ActionExecutionEnv);
     }
-    return { summaryHtml: this.withActionSection(summary.html, actions), actions, rawSummary: summary.rawSummary };
+    return { summaryHtml: this.withActionSection(summary.html, actions), summaryModel: summary.summaryModel, actions, rawSummary: summary.rawSummary };
   }
 
   private async summarize(
@@ -143,7 +145,7 @@ class EmailSummaryOrchestrator {
     }
     const usageEstimate: AiTextGenerationUsageEstimate | undefined = await this.recordSummaryUsage(model, result.usage, promptText, result.summary);
     const rawSummary = { gist: result.emailSummary?.gist ?? '', keyDetails: result.emailSummary?.keyDetails ?? [] };
-    if (!ConfigurationManager.getDebugMode(this.env)) return { html: result.summary, actionProposals: result.actionProposals ?? [], rawSummary };
+    if (!ConfigurationManager.getDebugMode(this.env)) return { html: result.summary, actionProposals: result.actionProposals ?? [], rawSummary, summaryModel: model };
 
     const applicationName: string = application.displayName || application.applicationId;
     return {
@@ -168,6 +170,7 @@ class EmailSummaryOrchestrator {
       ].join('\n'),
       actionProposals: result.actionProposals ?? [],
       rawSummary,
+      summaryModel: model,
     };
   }
 
