@@ -28,14 +28,17 @@ class EmailProcessingAuditLogger {
     );
   }
 
-  async logSummaryGenerated(application: ConnectedApplication, sourceDocumentId: string, retryAttempt?: number | undefined): Promise<void> {
+  async logSummaryGenerated(application: ConnectedApplication, sourceDocumentId: string, model: string, retryAttempt?: number | undefined): Promise<void> {
     return this.logAuditEvent(
       application,
       sourceDocumentId,
       CONTEXT_AUDIT_EVENT_SUMMARY_GENERATED,
       'AI Summary Generated',
       CONTEXT_AUDIT_LOG_SEVERITY_INFO,
-      retryAttempt != null && retryAttempt > 1 ? { attempt: retryAttempt } : undefined,
+      {
+        summaryModel: model,
+        ...(retryAttempt != null && retryAttempt > 1 ? { attempt: retryAttempt } : {}),
+      },
     );
   }
 
@@ -59,14 +62,17 @@ class EmailProcessingAuditLogger {
     );
   }
 
-  async logSummarySent(application: ConnectedApplication, sourceDocumentId: string, retryAttempt?: number | undefined): Promise<void> {
+  async logSummarySent(application: ConnectedApplication, sourceDocumentId: string, model: string, retryAttempt?: number | undefined): Promise<void> {
     return this.logAuditEvent(
       application,
       sourceDocumentId,
       CONTEXT_AUDIT_EVENT_SUMMARY_SENT,
       'Summary Email Sent',
       CONTEXT_AUDIT_LOG_SEVERITY_INFO,
-      retryAttempt != null && retryAttempt > 1 ? { attempt: retryAttempt } : undefined,
+      {
+        summaryModel: model,
+        ...(retryAttempt != null && retryAttempt > 1 ? { attempt: retryAttempt } : {}),
+      },
     );
   }
 
