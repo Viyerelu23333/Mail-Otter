@@ -50,6 +50,11 @@ const SUMMARY_JSON_SCHEMA = {
   },
 } as const;
 
+const REASONING_MODELS_REQUIRING_THINKING_DISABLED: ReadonlySet<string> = new Set<string>([
+  '@cf/moonshotai/kimi-k2.6',
+  '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
+]);
+
 class EmailSummaryUtil {
   public static async summarizeEmail(
     ai: Ai,
@@ -96,6 +101,9 @@ class EmailSummaryUtil {
           strict: true,
         },
       };
+      if (REASONING_MODELS_REQUIRING_THINKING_DISABLED.has(model)) {
+        request.chat_template_kwargs = { thinking: false };
+      }
     }
 
     request.reasoning_effort = 'low';
@@ -307,6 +315,7 @@ interface AiTextGenerationRequest {
       }
     | undefined;
   reasoning_effort?: 'low' | 'medium' | 'high' | undefined;
+  chat_template_kwargs?: { thinking: boolean } | undefined;
 }
 
 export { EmailSummaryUtil };
