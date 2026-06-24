@@ -36,6 +36,7 @@ import { createActionDAO, hashToken } from './ActionServiceUtils';
 import type { ActionCreationEnv } from './ActionCreationService';
 import { renderConfirmationPage, renderMessagePage, renderResultPage } from './ActionRenderService';
 import * as PackageTrackingService from './PackageTrackingService';
+import * as FlightTrackingService from './FlightTrackingService';
 import { ConfigurationManager } from '@mail-otter/backend-runtime/config';
 
 interface ActionHtmlResponse {
@@ -101,6 +102,18 @@ async function executeProviderOperation(action: EmailAction, env: ActionExecutio
   }
   if (action.actionType === EMAIL_ACTION_TYPE_TRAVEL_TRACK_FLIGHT) {
     const payload = action.payload as TravelTrackFlightActionPayload;
+    const flightTrackingApiKey = ConfigurationManager.digest.getFlightTrackingApiKey(env);
+    if (flightTrackingApiKey) {
+      const syncStatus = await FlightTrackingService.fetchFlightStatus(payload.flightNumber, flightTrackingApiKey);
+      if (syncStatus) {
+        const actionDAO = await createActionDAO(env);
+        await actionDAO.updateSyncStatus(action.actionId, JSON.stringify(syncStatus));
+        return {
+          summary: FlightTrackingService.formatFlightSummary(payload.flightNumber, syncStatus),
+          externalUrl: payload.trackingUrl ?? undefined,
+        };
+      }
+    }
     if (payload.trackingUrl) return { summary: 'Flight tracking link opened.', externalUrl: payload.trackingUrl };
     return { summary: `Flight ${payload.flightNumber} details noted.` };
   }
