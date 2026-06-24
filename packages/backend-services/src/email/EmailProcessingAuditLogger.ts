@@ -1,6 +1,7 @@
 import {
   CONTEXT_AUDIT_EVENT_ACTION_CREATED,
   CONTEXT_AUDIT_EVENT_ERROR,
+  CONTEXT_AUDIT_EVENT_MODEL_FALLBACK,
   CONTEXT_AUDIT_EVENT_PROCESSING_STARTED,
   CONTEXT_AUDIT_EVENT_SUMMARY_GENERATED,
   CONTEXT_AUDIT_EVENT_SUMMARY_SENT,
@@ -70,6 +71,17 @@ class EmailProcessingAuditLogger {
       'Summary Email Sent',
       CONTEXT_AUDIT_LOG_SEVERITY_INFO,
       retryAttempt != null && retryAttempt > 1 ? { attempt: retryAttempt } : undefined,
+    );
+  }
+
+  async logModelFallback(application: ConnectedApplication, sourceDocumentId: string, primaryModel: string, error: Error): Promise<void> {
+    return this.logAuditEvent(
+      application,
+      sourceDocumentId,
+      CONTEXT_AUDIT_EVENT_MODEL_FALLBACK,
+      'AI Summary Model Fallback',
+      CONTEXT_AUDIT_LOG_SEVERITY_WARNING,
+      { primaryModel, error: error.message, errorType: error.constructor?.name },
     );
   }
 
