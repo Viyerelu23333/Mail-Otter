@@ -6,6 +6,7 @@ import {
 import type { DeliveryTrackPackageActionPayload, EmailAction, TravelTrackFlightActionPayload } from '@mail-otter/shared/model';
 import type { D1Queryable } from '@mail-otter/backend-data/utils';
 import { formatExpectedDelivery, TAG_LABELS } from '../action/PackageTrackingService';
+import { fetchFlightStatus } from '../action/FlightTrackingService';
 
 interface PackageSyncStatus {
   carrier?: string;
@@ -14,14 +15,6 @@ interface PackageSyncStatus {
   statusLabel?: string;
   location?: string;
   expectedDelivery?: string;
-  lastUpdate?: string;
-}
-
-interface FlightSyncStatus {
-  flightNumber: string;
-  airline?: string;
-  status?: string;
-  departureTime?: string;
   lastUpdate?: string;
 }
 
@@ -95,27 +88,13 @@ class ActionStatusSyncUtil {
     const payload = action.payload as TravelTrackFlightActionPayload;
     if (!payload.flightNumber || !apiKey) return;
 
-    const url = new URL('http://api.aviationstack.com/v1/flights');
-    url.searchParams.set('access_key', apiKey);
-    url.searchParams.set('flight_iata', payload.flightNumber);
-    const response = await fetch(url.toString());
-    if (!response.ok) return;
+    const syncStatus = await fetchFlightStatus(payload.flightNumber, apiKey);
+    if (!syncStatus) return;
 
-    const data = (await response.json()) as {
-      data?: Array<{ flight_status?: string; departure?: { scheduled?: string } }>;
-    };
-    const flight = data.data?.[0];
-    if (!flight) return;
-
-    const syncStatus: FlightSyncStatus = {
-      flightNumber: payload.flightNumber,
-      airline: payload.airline,
-      status: flight.flight_status,
-      departureTime: flight.departure?.scheduled,
-    };
     await this.actionDAO.updateSyncStatus(action.actionId, JSON.stringify(syncStatus));
   }
 }
 
 export { ActionStatusSyncUtil };
-export type { PackageSyncStatus, FlightSyncStatus };
+export type { PackageSyncStatus };
+export type { FlightSyncStatus } from '../action/FlightTrackingService';

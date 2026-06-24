@@ -15,6 +15,7 @@ const {
   mockMarkExpired,
   mockRecordExecution,
   mockGetById,
+  mockUpdateSyncStatus,
 } = vi.hoisted(() => ({
   mockCreate: vi.fn(),
   mockDeleteByProcessedMessageId: vi.fn(),
@@ -30,6 +31,7 @@ const {
   mockMarkExpired: vi.fn(),
   mockRecordExecution: vi.fn(),
   mockGetById: vi.fn(),
+  mockUpdateSyncStatus: vi.fn(),
 }));
 
 vi.mock('@mail-otter/backend-data/dao', () => ({
@@ -48,6 +50,7 @@ vi.mock('@mail-otter/backend-data/dao', () => ({
       markFailed: mockMarkFailed,
       markExpired: mockMarkExpired,
       recordExecution: mockRecordExecution,
+      updateSyncStatus: mockUpdateSyncStatus,
     };
   }),
   ConnectedApplicationDAO: vi.fn(function () {
@@ -91,6 +94,15 @@ vi.mock('../../packages/backend-services/src/oauth2/OAuth2AccessTokenService', (
 const { mockFetchStatus } = vi.hoisted(() => ({ mockFetchStatus: vi.fn() }));
 vi.mock('../../packages/backend-services/src/action/PackageTrackingService', () => ({
   fetchStatus: mockFetchStatus,
+}));
+
+const { mockFetchFlightStatus, mockFormatFlightSummary } = vi.hoisted(() => ({
+  mockFetchFlightStatus: vi.fn(),
+  mockFormatFlightSummary: vi.fn(),
+}));
+vi.mock('../../packages/backend-services/src/action/FlightTrackingService', () => ({
+  fetchFlightStatus: mockFetchFlightStatus,
+  formatFlightSummary: mockFormatFlightSummary,
 }));
 
 vi.mock('@mail-otter/provider-clients/gmail', () => ({
@@ -1069,7 +1081,7 @@ describe('ActionService', () => {
       }));
     });
 
-    it('executes travel.track_flight and returns flight acknowledgment', async () => {
+    it('executes travel.track_flight without API key and returns static acknowledgment', async () => {
       const payload = { type: 'travel.track_flight', flightNumber: 'AA123', airline: 'American Airlines' };
       const action = makeAction({ actionType: 'travel.track_flight', payload });
       const doneAction = makeAction({ status: 'succeeded' });
@@ -1081,8 +1093,59 @@ describe('ActionService', () => {
 
       await ActionService.executeActionWithToken('action-1', 'token', new Request('https://example.com'), makeEnv() as never);
 
+      expect(mockFetchFlightStatus).not.toHaveBeenCalled();
       expect(mockMarkSucceeded).toHaveBeenCalledWith('action-1', expect.objectContaining({
         summary: 'Flight AA123 details noted.',
+      }));
+    });
+
+    it('executes travel.track_flight with API key and returns live status summary', async () => {
+      const { ConfigurationManager } = await import('@mail-otter/backend-runtime/config');
+      (ConfigurationManager.digest.getFlightTrackingApiKey as ReturnType<typeof vi.fn>).mockReturnValue('aviationstack-key');
+      const syncStatus = { flightNumber: 'AA123', status: 'scheduled', departureTime: '2026-07-01T14:30:00+00:00', departureIata: 'JFK', arrivalIata: 'LAX' };
+      mockFetchFlightStatus.mockResolvedValue(syncStatus);
+      mockFormatFlightSummary.mockReturnValue('Flight AA123 — Scheduled · Departs 14:30 UTC');
+      mockUpdateSyncStatus.mockResolvedValue(undefined);
+
+      const payload = { type: 'travel.track_flight', flightNumber: 'AA123', airline: 'American Airlines', trackingUrl: 'https://track.example.com/AA123' };
+      const action = makeAction({ actionType: 'travel.track_flight', payload });
+      const doneAction = makeAction({ status: 'succeeded' });
+      mockGetByTokenHash.mockResolvedValue(action);
+      mockClaimForExecution.mockResolvedValue(true);
+      mockMarkSucceeded.mockResolvedValue(undefined);
+      mockRecordExecution.mockResolvedValue(undefined);
+      mockGetForUser.mockResolvedValue(doneAction);
+
+      await ActionService.executeActionWithToken('action-1', 'token', new Request('https://example.com'), makeEnv() as never);
+
+      expect(mockFetchFlightStatus).toHaveBeenCalledWith('AA123', 'aviationstack-key');
+      expect(mockUpdateSyncStatus).toHaveBeenCalledWith('action-1', expect.stringContaining('scheduled'));
+      expect(mockMarkSucceeded).toHaveBeenCalledWith('action-1', expect.objectContaining({
+        summary: 'Flight AA123 — Scheduled · Departs 14:30 UTC',
+        externalUrl: 'https://track.example.com/AA123',
+      }));
+    });
+
+    it('falls back to static behavior when flight API returns null', async () => {
+      const { ConfigurationManager } = await import('@mail-otter/backend-runtime/config');
+      (ConfigurationManager.digest.getFlightTrackingApiKey as ReturnType<typeof vi.fn>).mockReturnValue('aviationstack-key');
+      mockFetchFlightStatus.mockResolvedValue(null);
+
+      const payload = { type: 'travel.track_flight', flightNumber: 'AA123', trackingUrl: 'https://track.example.com/AA123' };
+      const action = makeAction({ actionType: 'travel.track_flight', payload });
+      const doneAction = makeAction({ status: 'succeeded' });
+      mockGetByTokenHash.mockResolvedValue(action);
+      mockClaimForExecution.mockResolvedValue(true);
+      mockMarkSucceeded.mockResolvedValue(undefined);
+      mockRecordExecution.mockResolvedValue(undefined);
+      mockGetForUser.mockResolvedValue(doneAction);
+
+      await ActionService.executeActionWithToken('action-1', 'token', new Request('https://example.com'), makeEnv() as never);
+
+      expect(mockUpdateSyncStatus).not.toHaveBeenCalled();
+      expect(mockMarkSucceeded).toHaveBeenCalledWith('action-1', expect.objectContaining({
+        summary: 'Flight tracking link opened.',
+        externalUrl: 'https://track.example.com/AA123',
       }));
     });
 
