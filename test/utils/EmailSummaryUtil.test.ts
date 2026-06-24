@@ -72,7 +72,7 @@ describe('EmailSummaryUtil', () => {
     } satisfies Partial<AiSummaryRetryableError>);
   });
 
-  it('requests JSON mode and low reasoning from kimi-k2.6', async () => {
+  it('requests JSON mode and low reasoning from kimi-k2.6 with thinking disabled', async () => {
     const ai = {
       run: vi.fn().mockResolvedValue({
         response: `Here is the summary:
@@ -104,9 +104,69 @@ describe('EmailSummaryUtil', () => {
           }),
         },
         reasoning_effort: 'low',
+        chat_template_kwargs: { thinking: false },
       }),
     );
-    expect((ai.run as ReturnType<typeof vi.fn>).mock.calls[0][1]).not.toHaveProperty('chat_template_kwargs');
+  });
+
+  it('requests JSON mode and low reasoning from deepseek-r1 with thinking disabled', async () => {
+    const ai = {
+      run: vi.fn().mockResolvedValue({
+        response: `Here is the summary:
+
+\`\`\`json
+{
+  "gist": "The sender needs approval for the budget.",
+  "keyDetails": ["Budget is $12,000."]
+}
+\`\`\``,
+      }),
+    } as unknown as Ai;
+
+    await expect(EmailSummaryUtil.summarizeEmail(ai, '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b', 'Campaign budget', 'sam@example.com', 'body')).resolves
+      .toBe(`<p>The sender needs approval for the budget.</p>
+
+<p><strong>Details:</strong></p>
+<ul>
+<li>Budget is $12,000.</li>
+</ul>`);
+    expect(ai.run).toHaveBeenCalledWith(
+      '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
+      expect.objectContaining({
+        response_format: {
+          type: 'json_schema',
+          json_schema: expect.objectContaining({
+            name: 'email_summary',
+            strict: true,
+          }),
+        },
+        reasoning_effort: 'low',
+        chat_template_kwargs: { thinking: false },
+      }),
+    );
+  });
+
+  it('does not add chat_template_kwargs for non-reasoning models with JSON mode', async () => {
+    const ai = {
+      run: vi.fn().mockResolvedValue({
+        response: JSON.stringify({
+          gist: 'The sender needs approval for the budget.',
+          keyDetails: ['Budget is $12,000.'],
+        }),
+      }),
+    } as unknown as Ai;
+
+    await expect(EmailSummaryUtil.summarizeEmail(ai, '@cf/openai/gpt-oss-20b', 'Campaign budget', 'sam@example.com', 'body')).resolves
+      .toBe(`<p>The sender needs approval for the budget.</p>
+
+<p><strong>Details:</strong></p>
+<ul>
+<li>Budget is $12,000.</li>
+</ul>`);
+    const requestArg = (ai.run as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(requestArg).toHaveProperty('response_format');
+    expect(requestArg).toHaveProperty('reasoning_effort', 'low');
+    expect(requestArg).not.toHaveProperty('chat_template_kwargs');
   });
 
   it('extracts summary text from Responses API output', async () => {
