@@ -12,6 +12,7 @@ Mailboxes carry their own time zone so calendar events stay correct, optional se
 
 - `google-gmail` / `oauth2`
 - `microsoft-outlook` / `oauth2` for personal Outlook.com, Hotmail, and Live accounts
+- `fastmail-jmap` / `oauth2` or `imap_password` for Fastmail
 
 ## Cloudflare Bindings
 
@@ -26,7 +27,7 @@ Mailboxes carry their own time zone so calendar events stay correct, optional se
 - Secrets Store: `AES_ENCRYPTION_KEY_SECRET` (token encryption)
 - Secrets Store: `ACTION_ENCRYPTION_KEY_SECRET` (action payload encryption)
 - Secrets Store: `ACTION_SIGNING_SECRET` (action token signing)
-- Cron trigger: every 10 minutes, for OAuth2 token refresh, context document pruning/embedding, processed message pruning, stale context document pruning, OAuth2 session pruning, context deletion run pruning, AI daily usage pruning, email action pruning, audit log pruning, and subscription renewal
+- Cron trigger: every 10 minutes, for OAuth2 token refresh, context document pruning/embedding, IMAP polling, calendar event sync, action status sync, subscription renewal, processed message pruning, stale context document pruning, OAuth2 session pruning, context deletion run pruning, AI daily usage pruning, email action pruning, audit log pruning, integration delivery log pruning, scheduled digest delivery, synced calendar event pruning, and background task run pruning
 
 Copy `apps/api/wrangler.template.jsonc` to `wrangler.jsonc` and fill in the D1 database id, KV namespace id, secret store ids, and routes.
 
@@ -47,6 +48,10 @@ When processing an email, the AI can generate one or more suggested actions. Eac
 - `email.draft_reply` — prepare a draft reply
 - `external.open_link` — open a relevant link
 - `manual.todo` — record a manual to-do
+- `delivery.track_package` — track a package shipment (requires `PACKAGE_TRACKING_API_KEY` via Aftership)
+- `travel.track_flight` — track a flight (requires `FLIGHT_TRACKING_API_KEY` via Aviationstack)
+- `finance.pay_bill` — record a bill due for payment
+- `appointment.confirm` — confirm a scheduled appointment
 
 Each action gets an encrypted and signed callback URL that is posted in the summary reply:
 
@@ -72,6 +77,27 @@ Each connected application can optionally define sender domain filters with incl
 ## Analytics
 
 The management UI includes an analytics dashboard (`GET /user/analytics`) summarizing Workers AI usage (estimated neurons and request counts over time), processing outcomes, email action counts, and context indexing — overall or scoped to a single application, over a selectable number of days.
+
+## Email Processing Rules
+
+Each connected application can define up to 20 email processing rules. Rules have a condition (all/any of up to 5 field matchers) and an action. Rules are split into two phases:
+
+- **Pre-processing** (first match wins): `skip` skips the message, `skip_actions` disables AI action proposals, `prepend_instruction` injects text into the AI prompt.
+- **Post-processing** (all matches applied after summarization): `apply_label`, `archive_message`, `mark_read`, `star_message`.
+
+Configure rules in the management UI. The UI also offers AI-assisted rule suggestion from a plain-language description.
+
+## Scheduled Digest
+
+Each connected application can optionally enable a **daily digest**: a scheduled email summarizing pending actions, upcoming calendar events, package statuses, flight statuses, bills due, and appointments. Configure the send time, enabled sections, and delivery in the management UI (`GET|PUT /user/application/digest`). Trigger an immediate send with `POST /user/application/digest/send`.
+
+## Outbound Integrations
+
+Each connected application can define webhook integrations that receive a JSON payload whenever an email is processed. Deliveries are logged and viewable in the management UI. Add, edit, test, and remove integrations under the Integrations section of each mailbox.
+
+## Background Task Visibility
+
+The **Processing** view in the management UI shows per-application background task run history, synced calendar events, and processed message history. Individual tasks (calendar sync, action status sync) can also be triggered manually from the UI.
 
 ## OAuth Setup
 
@@ -117,6 +143,10 @@ projects/{projectId}/topics/{topicName}
 
 After OAuth succeeds, start the watch in Mail-Otter. The UI shows a one-time webhook URL containing a token. Configure the Pub/Sub push subscription to deliver to that URL.
 
+## Fastmail Watch
+
+For Fastmail JMAP connections, Mail-Otter can authenticate via OAuth2 or an IMAP app password. After connecting, the watch is started automatically. Incoming message events are delivered via Fastmail's webhook push mechanism to `POST /api/webhooks/fastmail/:applicationId`.
+
 ## Outlook Watch
 
 For Outlook, the watch is started automatically after OAuth succeeds. You can optionally restrict the watch to specific folders via the management UI (`PUT /user/application/watch-settings`).
@@ -138,7 +168,7 @@ Set these in `wrangler.jsonc` under `vars` to override defaults:
 | `RAG_TOP_K`                                  | `5`                       | Context documents included in the RAG prompt                                                                 |
 | `RAG_VECTOR_QUERY_TOP_K`                     | `50`                      | Candidate documents retrieved from Vectorize before re-ranking                                               |
 | `MAX_EMAIL_BODY_CHARS`                       | `12000`                   | Characters of email body sent to AI for summarization                                                        |
-| `AI_SUMMARY_MODEL`                           | `@cf/openai/gpt-oss-120b` | Workers AI model for email summarization                                                                     |
+| `AI_SUMMARY_MODEL`                           | `@cf/moonshotai/kimi-k2.6` | Workers AI model for email summarization                                                                    |
 | `AI_SUMMARY_FALLBACK_MODEL`                  | `@cf/openai/gpt-oss-20b`  | Workers AI summary model used after the daily neuron fallback threshold is reached                           |
 | `AI_DAILY_NEURON_FALLBACK_THRESHOLD`         | `6000`                    | Estimated UTC daily Workers AI neuron usage where summaries switch to the fallback model; set `0` to disable |
 | `AI_DAILY_NEURON_FREE_TIER_LIMIT`            | `10000`                   | Estimated daily Workers AI free-tier neuron allowance, used to render the usage bar in the management UI      |
@@ -154,6 +184,10 @@ Set these in `wrangler.jsonc` under `vars` to override defaults:
 | `ACTION_CALLBACK_BASE_URL`                   | `""`                      | Base URL for action callback links; uses the request host if empty                                           |
 | `ACTION_DEFAULT_EXPIRY_HOURS`                | `168`                     | Default TTL for email action confirmation tokens                                                             |
 | `ACTION_RETENTION_DAYS`                      | `90`                      | Days to retain completed or expired email actions                                                            |
+| `PACKAGE_TRACKING_API_KEY`                   | `""`                      | Aftership API key for live package tracking; leave empty to disable `delivery.track_package` execution      |
+| `FLIGHT_TRACKING_API_KEY`                    | `""`                      | Aviationstack API key for live flight tracking; leave empty to disable `travel.track_flight` execution      |
+| `BACKGROUND_TASK_RUN_RETENTION_DAYS`         | `30`                      | Days to retain background task run records                                                                   |
+| `INTEGRATION_DELIVERY_LOG_RETENTION_DAYS`    | `30`                      | Days to retain outbound integration delivery log entries                                                     |
 
 ## Continuous Deployment Variables
 
