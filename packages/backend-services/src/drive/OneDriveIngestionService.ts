@@ -51,11 +51,17 @@ class OneDriveIngestionService {
       'onedrive_delta_link',
     );
 
-    const delta = await OneDriveProviderUtil.getDelta(
-      accessToken,
-      storedLink ?? undefined,
-      maxFiles,
-    );
+    let delta: Awaited<ReturnType<typeof OneDriveProviderUtil.getDelta>>;
+    try {
+      delta = await OneDriveProviderUtil.getDelta(accessToken, storedLink ?? undefined, maxFiles);
+    } catch (error: unknown) {
+      if (storedLink && error instanceof Error && error.message.includes('(401)')) {
+        await applicationDAO.deleteProviderConfig(application.applicationId, 'onedrive_delta_link');
+        delta = await OneDriveProviderUtil.getDelta(accessToken, undefined, maxFiles);
+      } else {
+        throw error;
+      }
+    }
 
     let indexed = 0;
     let skipped = 0;
