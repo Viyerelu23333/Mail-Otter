@@ -384,6 +384,7 @@ All user-visible text in `apps/web/` must use **Title Case** (capitalize the fir
 - GoogleDriveProviderUtil: tests present (getStartPageToken, listChanges, exportDocument, downloadFile)
 - OneDriveProviderUtil: tests present (getDelta, downloadItem, convertItemToPdf)
 - GoogleDriveIngestionService: tests present (no-op without Vectorize, first-run cursor init, index/skip/delete/fail scenarios)
+- OneDriveIngestionService: tests present (no-op without Vectorize, 401 stale-link reset, retry, happy path)
 
 ### Still Uncovered (0% or near-0%)
 - DigestConfigService.ts, DigestEmailUtil.ts, DigestService.ts, ActionStatusSyncUtil.ts, CalendarEventSyncUtil.ts (digest services)
