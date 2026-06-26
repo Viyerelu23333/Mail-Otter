@@ -1,4 +1,5 @@
 import { cn } from '../../lib/utils';
+import { X } from 'lucide-react';
 
 export function Metric({
   label,
@@ -24,9 +25,9 @@ export function Metric({
         <button
           onClick={onDismiss}
           title="Dismiss Error"
-          className="absolute top-2 right-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] leading-none text-base"
+          className="absolute top-2 right-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] leading-none text-sm flex items-center gap-1 whitespace-nowrap"
         >
-          ×
+          Dismiss <X className="h-3.5 w-3.5" />
         </button>
       )}
     </div>
