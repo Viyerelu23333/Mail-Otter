@@ -14,19 +14,20 @@ export function useChat({ showNotice }: UseChatOptions) {
 
   const sendMessage = async (query: string) => {
     const userMessage: ChatMessage = { role: 'user', content: query };
-    const nextMessages = [...messages, userMessage];
+    const previousMessages = messages;
+    const nextMessages = [...previousMessages, userMessage];
     setMessages(nextMessages);
     setChatLoading(true);
     try {
       const result = await chatService.sendChatMessage({
         query,
         applicationId: chatApplicationId || undefined,
-        history: messages,
+        history: previousMessages,
       });
       setMessages([...nextMessages, { role: 'assistant', content: result.answer }]);
       setSources(result.sources);
     } catch (e) {
-      setMessages(messages);
+      setMessages(previousMessages);
       showNotice('error', e instanceof Error ? e.message : 'Unable To Send Chat Message.');
     } finally {
       setChatLoading(false);
