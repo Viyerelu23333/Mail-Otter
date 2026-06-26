@@ -9,6 +9,7 @@ import {
   CONTEXT_AUDIT_LOG_SEVERITY_INFO,
   CONTEXT_SOURCE_TYPE_ONEDRIVE,
 } from '@mail-otter/shared/constants';
+import { UnauthorizedError } from '@mail-otter/backend-errors';
 import { CryptoUtil } from '@mail-otter/shared/utils';
 import { ConfigurationManager } from '@mail-otter/backend-runtime/config';
 import { EmailContextUtil, AiUsageUtil } from '../email';
@@ -63,14 +64,14 @@ class OneDriveIngestionService {
           delta = await OneDriveProviderUtil.getDelta(accessToken, undefined, maxFiles);
         } catch (retryError: unknown) {
           if (retryError instanceof Error && retryError.message.includes('(401)')) {
-            throw new Error(
+            throw new UnauthorizedError(
               'OneDrive access token lacks the required scope. Re-authorize the application with OneDrive permissions enabled.',
             );
           }
           throw retryError;
         }
       } else if (is401) {
-        throw new Error(
+        throw new UnauthorizedError(
           'OneDrive access token lacks the required scope. Re-authorize the application with OneDrive permissions enabled.',
         );
       } else {

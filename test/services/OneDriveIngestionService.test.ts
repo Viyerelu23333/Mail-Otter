@@ -193,7 +193,9 @@ describe('OneDriveIngestionService', () => {
     mockGetProviderConfig.mockResolvedValue(null);
     mockGetDelta.mockRejectedValue(new Error('Microsoft Graph (OneDrive) get delta failed (401): unauthenticated'));
 
-    await expect(service().ingestForApplication(MOCK_APPLICATION, ACCESS_TOKEN)).rejects.toThrow('(401)');
+    await expect(service().ingestForApplication(MOCK_APPLICATION, ACCESS_TOKEN)).rejects.toThrow(
+      'OneDrive access token lacks the required scope. Re-authorize the application with OneDrive permissions enabled.',
+    );
 
     expect(mockDeleteProviderConfig).not.toHaveBeenCalled();
     expect(mockGetDelta).toHaveBeenCalledTimes(1);
