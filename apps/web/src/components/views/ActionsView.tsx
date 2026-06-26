@@ -184,6 +184,18 @@ export function ActionsView({
   const [minScheduleDatetime] = useState(() => toLocalDatetimeValue(new Date(Date.now() + 60_000).toISOString()));
 
   const [scheduleCustomValue, setScheduleCustomValue] = useState('');
+  const [refreshingExecutions, setRefreshingExecutions] = useState(false);
+
+  useEffect(() => {
+    if (refreshingExecutions) {
+      setRefreshingExecutions(false);
+    }
+  }, [executions]);
+
+  const handleRefreshExecutions = () => {
+    setRefreshingExecutions(true);
+    onSelectAction(selectedAction!.actionId);
+  };
 
   const isSnoozed = (a: EmailAction) => Boolean(a.snoozedUntil && a.snoozedUntil > now);
   const isScheduled = (a: EmailAction) => Boolean(a.scheduledFor && a.scheduledFor > now);
@@ -197,7 +209,7 @@ export function ActionsView({
             Review AI-Proposed Actions, Execution Results, Audit Trail, And Expiry.
           </p>
         </div>
-        <Button variant="secondary" size="sm" onClick={onRefresh} disabled={busy}>
+        <Button variant="secondary" size="sm" onClick={onRefresh} loading={busy}>
           <RefreshCw className="h-3.5 w-3.5" />
           Refresh
         </Button>
@@ -423,7 +435,7 @@ export function ActionsView({
               <Card>
                 <CardHeader>
                   <CardTitle>Execution Audit</CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => onSelectAction(selectedAction.actionId)}>
+                  <Button variant="ghost" size="sm" onClick={handleRefreshExecutions} loading={refreshingExecutions}>
                     <RefreshCw className="h-3.5 w-3.5" />
                     Refresh
                   </Button>
