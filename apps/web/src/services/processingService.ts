@@ -52,6 +52,9 @@ export const TASK_TYPE_LABELS: Record<string, string> = {
   imap_polling: 'IMAP Polling',
   scheduled_digest: 'Scheduled Digest',
   oauth2_refresh: 'OAuth2 Token Refresh',
+  scheduled_action_execution: 'Scheduled Action Execution',
+  google_drive_sync: 'Google Drive Sync',
+  onedrive_sync: 'OneDrive Sync',
 };
 
 export function getTaskTypeLabel(taskType: string): string {

@@ -55,9 +55,24 @@ class OneDriveIngestionService {
     try {
       delta = await OneDriveProviderUtil.getDelta(accessToken, storedLink ?? undefined, maxFiles);
     } catch (error: unknown) {
-      if (storedLink && error instanceof Error && error.message.includes('(401)')) {
+      const is401 = error instanceof Error && error.message.includes('(401)');
+      if (is401 && storedLink) {
+        // Stale delta link — clear it and retry from the beginning
         await applicationDAO.deleteProviderConfig(application.applicationId, 'onedrive_delta_link');
-        delta = await OneDriveProviderUtil.getDelta(accessToken, undefined, maxFiles);
+        try {
+          delta = await OneDriveProviderUtil.getDelta(accessToken, undefined, maxFiles);
+        } catch (retryError: unknown) {
+          if (retryError instanceof Error && retryError.message.includes('(401)')) {
+            throw new Error(
+              'OneDrive access token lacks the required scope. Re-authorize the application with OneDrive permissions enabled.',
+            );
+          }
+          throw retryError;
+        }
+      } else if (is401) {
+        throw new Error(
+          'OneDrive access token lacks the required scope. Re-authorize the application with OneDrive permissions enabled.',
+        );
       } else {
         throw error;
       }
