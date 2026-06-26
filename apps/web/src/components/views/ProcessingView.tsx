@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+
 import { RefreshCw, ChevronDown, Play } from 'lucide-react';
 import type { ConnectedApplication } from '../../../components/types';
 import type {
@@ -164,16 +164,9 @@ export function ProcessingView({
   onLoadMoreCalendarEvents: () => void;
   onLoadMoreProcessedMessages: () => void;
 }) {
-  const [refreshing, setRefreshing] = useState(false);
-
-  useEffect(() => {
-    if (refreshing && !taskRunsLoading && !calendarEventsLoading && !processedMessagesLoading) {
-      setRefreshing(false);
-    }
-  }, [refreshing, taskRunsLoading, calendarEventsLoading, processedMessagesLoading]);
+  const refreshing = taskRunsLoading || calendarEventsLoading || processedMessagesLoading;
 
   const handleRefresh = () => {
-    setRefreshing(true);
     onRefresh();
   };
 

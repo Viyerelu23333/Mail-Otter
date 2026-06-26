@@ -184,16 +184,8 @@ export function ActionsView({
   const [minScheduleDatetime] = useState(() => toLocalDatetimeValue(new Date(Date.now() + 60_000).toISOString()));
 
   const [scheduleCustomValue, setScheduleCustomValue] = useState('');
-  const [refreshingExecutions, setRefreshingExecutions] = useState(false);
-
-  useEffect(() => {
-    if (refreshingExecutions) {
-      setRefreshingExecutions(false);
-    }
-  }, [executions]);
 
   const handleRefreshExecutions = () => {
-    setRefreshingExecutions(true);
     onSelectAction(selectedAction!.actionId);
   };
 
@@ -435,7 +427,7 @@ export function ActionsView({
               <Card>
                 <CardHeader>
                   <CardTitle>Execution Audit</CardTitle>
-                  <Button variant="ghost" size="sm" onClick={handleRefreshExecutions} loading={refreshingExecutions}>
+                  <Button variant="ghost" size="sm" onClick={handleRefreshExecutions}>
                     <RefreshCw className="h-3.5 w-3.5" />
                     Refresh
                   </Button>
